@@ -20,7 +20,7 @@ import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.Security;
 
-public class QrngClientTest {
+public class QrngConnectionTest {
 
     public static void main(String[] args) throws Exception {
 
