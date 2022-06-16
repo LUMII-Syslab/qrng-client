@@ -1,0 +1,181 @@
+/*plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+      mavenCentral()
+}
+
+compileJava.options.encoding = "UTF-8"
+
+dependencies {
+    // Warning: do not use log4j < 2.16 because if a serious (10 of 10 points) vulnerability!
+    implementation 'org.slf4j:slf4j-api:2.+'
+    implementation 'org.slf4j:slf4j-simple:2.+'
+
+    // cactoos (for pure OOP)
+    implementation 'org.cactoos:cactoos:0.+'
+
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+
+}
+
+test {
+    useJUnitPlatform()
+}
+
+
+application {
+    mainClass.set("lv.lumii.qrng.QrngClient")
+}
+
+*/
+plugins {
+    id 'java-library'
+    id 'org.graalvm.buildtools.native' version '0.9.11'
+}
+
+repositories {
+    mavenCentral()
+}
+
+compileJava.options.encoding = "UTF-8"
+
+configurations {
+
+    nativeLibraryAndJars { // dll + all jars
+        canBeConsumed = false
+        canBeResolved = true
+        extendsFrom compileOnly
+    }
+    nativeLibraryOnly { // only dll, without any jars
+        canBeConsumed = false
+        canBeResolved = true
+        extendsFrom nativeLibraryAndJars
+    }
+
+    nativeLibrary { // dll with slf4j jars
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom nativeLibraryOnly
+    }
+
+}
+
+String osName = System.getProperty("os.name").toLowerCase();
+String artifactName = "qrng"
+String artifactNameWithExt = artifactName
+if (osName.contains("windows")) {
+    artifactNameWithExt += ".dll"
+}
+else
+if (osName.contains("mac os")) {
+    artifactNameWithExt += ".dylib"
+}
+else {
+    artifactNameWithExt += ".so"
+}
+
+artifacts {
+    nativeLibraryAndJars(nativeCompile.outputDirectory.file(artifactNameWithExt)) {
+        builtBy nativeCompile
+    }
+}
+
+
+
+dependencies {
+    // Warning: do not use log4j < 2.16 because if a serious (10 of 10 points) vulnerability!
+    implementation 'org.slf4j:slf4j-api:2.+'
+    implementation 'org.slf4j:slf4j-simple:2.+'
+
+    // cactoos (for pure OOP)
+    implementation 'org.cactoos:cactoos:0.+'
+
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+    compileOnly 'org.graalvm.buildtools:native-gradle-plugin:0.9.11'
+}
+
+// Excluding all jars from the nativeLibrary configuration.
+configurations.nativeLibraryAndJars.forEach {
+    if (it.name.endsWith(".jar")) {
+        def nameAndVersion = it.name.substring(0,it.name.length()-4)
+        configurations.nativeLibrary.exclude module: nameAndVersion
+        def i = nameAndVersion.lastIndexOf('-')
+        while (i>0) {
+            // at least one symbol for name prior to possible version
+            nameAndVersion = nameAndVersion.substring(0,i)
+            configurations.nativeLibrary.exclude module: nameAndVersion
+            i = nameAndVersion.lastIndexOf('-')
+        }
+    }
+}
+
+
+test {
+    failFast = true
+    // use the task testNative to build and run a test program, which uses the native library
+}
+
+task testNative {
+    dependsOn nativeCompile
+    doLast {
+        exec {
+            commandLine 'c++',
+                    '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                    '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                    '-Wall',
+                    '-l'+artifactName,
+                    '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
+                    '-Wl,-rpath,.,-rpath,/Users/sergejs/.sdkman/candidates/java/current/lib,-rpath,/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server',
+                    'src/test/cpp/test.cpp'
+        }
+        if (osName.contains("mac os")) {
+            exec {
+                commandLine 'install_name_tool',
+                        '-change',
+                        project.buildDir.absolutePath + '/native/nativeCompile/'+artifactNameWithExt,
+                        '@loader_path/'+artifactNameWithExt,
+                        project.buildDir.absolutePath + '/native/nativeCompile/test.exe'
+            }
+        }
+        exec {
+            commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
+        }
+    }
+}
+
+// used by nativeCompile and, thus, by nativeLibrary
+graalvmNative {
+    binaries {
+        main {
+            imageName = artifactName // The name of the native image, defaults to the project name
+//            debug = true // Determines if debug info should be generated, defaults to false
+            verbose = true // Add verbose output, defaults to false
+            fallback = false // Sets the fallback mode of native-image, defaults to false
+            sharedLibrary = true // Determines if image is a shared library, defaults to false if `java-library` plugin isn't included
+            //buildArgs.add('--enable-http')
+            //buildArgs.add('--enable-https')
+            //buildArgs.add('--enable-url-protocols')
+            buildArgs.add('--enable-all-security-services')
+            buildArgs.add('-H:ReflectionConfigurationFiles='+project.buildDir.absolutePath+'/../reflection.json')
+            buildArgs.add('-cp')
+            buildArgs.add(String.join(File.pathSeparator,configurations.compileClasspath.files.collect { "$it.name" }))
+        }
+    }
+}
+
+nativeCompile {
+    doLast {
+        if (!osName.contains("windows")) {
+            // creating the corresponding lib* file that is needed for c++ "-l" option to find the library when linking
+            copy {
+                from project.buildDir.absolutePath + '/native/nativeCompile/' + artifactNameWithExt
+                into project.buildDir.absolutePath + '/native/nativeCompile'
+                rename '(.*)', 'lib$1'
+            }
+        }
+    }
+}
+
