@@ -5,8 +5,8 @@
 
 int main(int argc, char **argv) {
 
-  printf("DYLD_LIBRARY_PATH=%s\n",getenv("DYLD_LIBRARY_PATH"));
-  setenv("DYLD_LIBRARY_PATH", "/Users/sergejs/.sdkman/candidates/java/current/lib:/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server:." , 1);
+  //printf("DYLD_LIBRARY_PATH=%s\n",getenv("DYLD_LIBRARY_PATH"));
+  //setenv("DYLD_LIBRARY_PATH", "/Users/sergejs/.sdkman/candidates/java/current/lib:/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server:." , 1);
 
   //graal_isolate_t *isolate = NULL;
   graal_isolatethread_t *thread = NULL;
