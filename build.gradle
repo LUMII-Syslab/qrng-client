@@ -119,18 +119,34 @@ test {
 }
 
 task testNative {
-    dependsOn nativeCompile
+//    dependsOn nativeCompile
     doLast {
+    if (osName.contains("windows")) {
+        def libFile = project.buildDir.absolutePath + '/native/nativeCompile/qrng.lib'
         exec {
-            commandLine 'c++',
-                    '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
-                    '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
-                    '-Wall',
-                    '-l'+artifactName,
-                    '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
-                    '-Wl,-rpath,.,-rpath,/Users/sergejs/.sdkman/candidates/java/current/lib,-rpath,/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server',
-                    'src/test/cpp/test.cpp'
+                commandLine 'clang',
+                        '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                        '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                        '-Wall',
+                        '-l'+artifactName,
+                        '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
+                        'src/test/cpp/test.cpp',
+                libFile
         }
+    }
+    else
+    {
+        exec {
+                commandLine 'c++',
+                        '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                        '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
+                        '-Wall',
+                        '-l'+artifactName,
+                        '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
+                        '-Wl,-rpath,.,-rpath,/Users/sergejs/.sdkman/candidates/java/current/lib,-rpath,/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server',
+                        'src/test/cpp/test.cpp'
+         }
+    }
         if (osName.contains("mac os")) {
             exec {
                 commandLine 'install_name_tool',
