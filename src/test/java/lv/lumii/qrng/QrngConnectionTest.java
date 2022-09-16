@@ -7,10 +7,7 @@ import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -19,6 +16,8 @@ import java.security.KeyStore;
 import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.util.LinkedList;
+import java.util.List;
 
 public class QrngConnectionTest {
 
@@ -33,19 +32,20 @@ public class QrngConnectionTest {
 
         Provider pr = SSLContext.getInstance("TLS").getProvider();
 
-        String host = "localhost";//"127.0.0.1";//"localhost";
-        int port = 4433;
+        //String host = "127.0.0.1";//"127.0.0.1";//"localhost";
+        //int port = 4433;
+        String host = "ws.qrng.lumii.lv";
+        int port = 4433;//443;
 
         for (Provider prov : Security.getProviders()) {
             System.out.println("PROVIDER "+prov.getName());
         }
 
         KeyStore clientKeyStore  = KeyStore.getInstance("PKCS12");// Algorithm HmacPBESHA256 not available => need jdk16 (new pkx format hash)
-        //FileInputStream instream = new FileInputStream(new File("/Users/sergejs/quantum/java-ca-store/sphincs_client_fullchain.p12")); // V1
-        FileInputStream instream = new FileInputStream(new File("/Users/sergejs/quantum/java-ca-store/user1.p12")); //V2
+        FileInputStream instream = new FileInputStream(new File("/Users/sergejs/quantum.gits/qrng-client/token.keystore")); //V2
         try {
             //clientKeyStore.load(instream, "123456".toCharArray()); // V1
-            clientKeyStore.load(instream, "q".toCharArray()); // V2
+            clientKeyStore.load(instream, "token-pass".toCharArray()); // V2
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -59,7 +59,7 @@ public class QrngConnectionTest {
 
         KeyStore trustStore;
         try {
-            trustStore = KeyStore.getInstance(new File("/Users/sergejs/quantum/java-ca-store/cacerts"), "changeit".toCharArray());
+            trustStore = KeyStore.getInstance(new File("/Users/sergejs/quantum.gits/qrng-client/ca.truststore"), "ca-truststore-pass".toCharArray());
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -68,7 +68,7 @@ public class QrngConnectionTest {
 
         KeyManagerFactory keyMgrFact = KeyManagerFactory.getInstance("SunX509");
         //keyMgrFact.init(clientKeyStore, "123456".toCharArray()); // V1
-        keyMgrFact.init(clientKeyStore, "q".toCharArray()); // V2
+        keyMgrFact.init(clientKeyStore, "token-pass".toCharArray()); // V2
 
         TrustManagerFactory trustMgrFact = TrustManagerFactory.getInstance("SunX509");
         trustMgrFact.init(trustStore);
@@ -88,40 +88,37 @@ public class QrngConnectionTest {
 
         // NEW WAY
         SSLFactory sslf2 = SSLFactory.builder()
+
                 //.withIdentityMaterial(keyMgrFact)
-                .withIdentityMaterial(clientKeyStore.getKey("user1", "q".toCharArray()), "q".toCharArray(), clientKeyStore.getCertificateChain("user1"))
+                .withIdentityMaterial(clientKeyStore.getKey("qrng_client", "token-pass".toCharArray()), "token-pass".toCharArray(), clientKeyStore.getCertificateChain("qrng_client"))
                 .withProtocols("TLSv1.3")
                 //.withIdentityRoute("localhost", host)// "localhost")
-                //.withIdentityRoute("user1", "localhost")
-
                 .withTrustMaterial(trustMgrFact)
                 .withSecureRandom(SecureRandom.getInstanceStrong())
                 .withCiphers("TLS_AES_256_GCM_SHA384")
                 .build();
 
 
-        SSLSocket ssl2 = (SSLSocket) sslf2.getSslSocketFactory().createSocket(host, port);//(host, port)
 
+
+        SSLSocket ssl2 = (SSLSocket) sslf2.getSslSocketFactory().createSocket(host, port);//(host, port)
 
 
 
         final SSLSocket myssl = ssl2; // ssl or ssl2
 
-        /*
-        // PARAMS
+        // sslParams are important for our SNI proxy (we need to set the server name)
         SSLParameters sslParams = new SSLParameters();
         sslParams.setEndpointIdentificationAlgorithm("HTTPS");
 
         List<SNIServerName> list = new LinkedList<>();
-        list.add(new SNIHostName("localhost"));
+        list.add(new SNIHostName(host));
         sslParams.setServerNames(list);
         sslParams.setWantClientAuth(true);
         sslParams.setNeedClientAuth(true);
         sslParams.setCipherSuites(new String[] {"TLS_AES_256_GCM_SHA384"}); // ???
 
         myssl.setSSLParameters(sslParams);
-        */
-
 
         // from: https://github.com/TooTallNate/Java-WebSocket
 
@@ -142,6 +139,18 @@ public class QrngConnectionTest {
             // TODO: 1x in a second check the client buffer and send binary request on how many bytes are still needed to fulfill the buffer
             // send that number (and wait patiently for onMessage(blob))
             // SEE: https://stackoverflow.com/questions/12908412/print-hello-world-every-x-seconds
+
+            @Override
+            protected void onSetSSLParameters(SSLParameters sslParameters) {
+                super.onSetSSLParameters(sslParameters);
+                List<SNIServerName> list = new LinkedList<>();
+                System.out.println("setting host name "+host);
+                list.add(new SNIHostName(host));
+                sslParameters.setServerNames(list);
+                sslParameters.setWantClientAuth(true);
+                sslParameters.setNeedClientAuth(true);
+                sslParameters.setCipherSuites(new String[] {"TLS_AES_256_GCM_SHA384"}); // ???
+            }
 
             @Override
             public void onOpen(ServerHandshake serverHandshake) {
@@ -184,16 +193,18 @@ public class QrngConnectionTest {
                 System.out.println("Error "+e.getMessage());
                 e.printStackTrace();
             }
+
         };
 
         cln.setConnectionLostTimeout(20);
         cln.setSocketFactory(sslf2.getSslSocketFactory());
-        cln.run();
 
         boolean b = false;
         // DEPRECATED setSocket
         if (b) {
             cln.setSocket(myssl);
+        }
+        else {
             cln.run();
         }
 
@@ -225,12 +236,15 @@ public class QrngConnectionTest {
 
                     os.write(s.getBytes(StandardCharsets.UTF_8));
                     os.flush();
+                    os.write(QrngConnectionTest.intToBytes(1024));
+                    os.flush();
 
                     InputStream is = myssl.getInputStream();
                     BufferedReader input = new BufferedReader(
                             new InputStreamReader(is));
 
                     for (; ; ) {
+                        System.out.println("READING...");
                         String ss = input.readLine();
                         if (ss == null)
                             break;
@@ -274,5 +288,10 @@ public class QrngConnectionTest {
          */
     }
 
+    private static byte[] intToBytes(int x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putInt(x);
+        return buffer.array();
+    }
 
 }
