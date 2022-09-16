@@ -8,10 +8,15 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
 
+import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIServerName;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -62,6 +67,22 @@ public class QrngServer {
             ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
             @Override
+            protected void onSetSSLParameters(SSLParameters sslParameters) {
+                super.onSetSSLParameters(sslParameters);
+                List<SNIServerName> list = new LinkedList<>();
+                try {
+                    System.out.println("setting host name (QrngServer) "+qrngProperties.host());
+                    list.add(new SNIHostName(qrngProperties.host()));
+                    sslParameters.setServerNames(list);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                sslParameters.setWantClientAuth(true);
+                sslParameters.setNeedClientAuth(true);
+                sslParameters.setCipherSuites(new String[] {"TLS_AES_256_GCM_SHA384"}); // ???
+            }
+
+            @Override
             public void onOpen(ServerHandshake serverHandshake) {
                 executorService.scheduleAtFixedRate(()->checkAndReplenish(), 0, 1, TimeUnit.SECONDS);
             }
@@ -90,7 +111,6 @@ public class QrngServer {
                 logger.error("Connection with the server lost: "+e.getMessage(), e);
             }
         };
-
 
         cln.setConnectionLostTimeout(20);
         cln.setSocketFactory(sslf2.getSslSocketFactory());
