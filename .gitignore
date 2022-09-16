@@ -8,3 +8,4 @@ build
 .recommenders
 .gradle
 out
+.jars
