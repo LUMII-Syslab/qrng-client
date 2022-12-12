@@ -30,12 +30,11 @@ public class QrngConnectionTest {
         Security.insertProviderAt(bcProvider, 1);
 
 
-        Provider pr = SSLContext.getInstance("TLS").getProvider();
+        Provider tlsProvider = SSLContext.getInstance("TLS").getProvider();
+        System.out.println("Using TLS provider: "+tlsProvider.getName()); // BCJSSE
 
-        //String host = "127.0.0.1";//"127.0.0.1";//"localhost";
-        //int port = 4433;
         String host = "ws.qrng.lumii.lv";
-        int port = 4433;//443;
+        int port = 443;
 
         for (Provider prov : Security.getProviders()) {
             System.out.println("PROVIDER "+prov.getName());

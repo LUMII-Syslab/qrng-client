@@ -1,23 +1,18 @@
 package lv.lumii.qrng;
 
-import java.net.URI;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.LinkedList;
-import java.util.List;
-import javax.net.ssl.*;
 
 import org.graalvm.word.WordFactory;
 import org.slf4j.*;
 
-import nl.altindag.ssl.SSLFactory;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.handshake.ServerHandshake;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.UnmanagedMemory;
@@ -37,8 +32,15 @@ public class QrngClient {
 
     static {
 
-        // do not use log4j2 in native executables/libraries!!!
-        // slf4j with simple logger is ok
+        /*
+        do not use log4j2 in native executables/libraries!!!
+        slf4j with simple logger is ok;
+
+        gradle dependencies:
+            implementation 'org.slf4j:slf4j-api:2.+'
+            implementation 'org.slf4j:slf4j-simple:2.+'
+         */
+
 
         File f = new File(QrngClient.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         mainExecutable = f.getAbsolutePath();
@@ -89,14 +91,28 @@ public class QrngClient {
 
         try {
             byte[] bytes = clientBuffer.consume(count);
+            if (targetBuffer == null) {
+                // converting bytes to Java stream:
+                var buffer = ByteBuffer.wrap(bytes);
+                var bytesStr = Stream.generate(() -> buffer.get()).
+                        limit(buffer.capacity()).
+                        map(b -> Byte.toString(b)).
+                        collect(Collectors.joining(" "));
+                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. "+
+                        "However, the QRNG service is working. We got "+count+" random bytes: "+bytesStr+".\"");
+            }
             for (int i = 0; i < count; ++i) {
                 targetBuffer.write(i, bytes[i]);
             }
             // All OK
             return WordFactory.nullPointer(); // Java "null" won't work in Native Image!
         } catch (InterruptedException e) {
+            if (targetBuffer == null) {
+                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. We are here to report an exception: "+e.getMessage()+"\"}");
+            }
             return toCCharPointer("{\"error\":\"Waiting for random bytes was interrupted: "+e.getMessage()+"\"}");
         }
+
     }
 
     /**

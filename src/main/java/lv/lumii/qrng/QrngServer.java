@@ -150,12 +150,16 @@ public class QrngServer {
         }
     }
 
+    private int lastUnused = 0;
     private void checkAndReplenish() {
         int unused = clientBuffer.unusedCapacity();
         // it is OK if unused==0; we then send 0 to the server in order to inform it about the full client buffer
         byte[] bytes = intToBytes(unused);
         try {
-            wsclient.value().getConnection().send(bytes);
+            boolean doubleZero = lastUnused == 0 && unused == 0;
+            lastUnused = unused;
+            if (!doubleZero) // do not send the zero twice
+                wsclient.value().getConnection().send(bytes);
         } catch (Exception e) {
             QrngClient.logger.error("Could not request "+unused+" bytes from the QRNG server", e);
         }
