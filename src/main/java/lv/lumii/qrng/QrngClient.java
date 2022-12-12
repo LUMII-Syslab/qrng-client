@@ -23,6 +23,8 @@ import org.graalvm.nativeimage.c.type.CCharPointer;
 public class QrngClient {
 
     public static Logger logger;
+
+    public static CCharPointer NULL_BUFFER;
     private static String mainExecutable;
     private static String mainDirectory;
 
@@ -31,6 +33,13 @@ public class QrngClient {
     private static QrngServer qrngServer;
 
     static {
+
+        try {
+             NULL_BUFFER = WordFactory.nullPointer(); // user from GraalVM native image
+        }
+        catch (Exception e) {
+            NULL_BUFFER = null; // used from Java mode of GraalVM
+        }
 
         /*
         do not use log4j2 in native executables/libraries!!!
@@ -78,7 +87,7 @@ public class QrngClient {
 
     @CEntryPoint(name = "qrng_connect")
     public static synchronized void qrng_connect(IsolateThread thread) {
-        System.out.println("java.library.path="+System.getProperty("java.library.path"));
+        logger.debug("java.library.path="+System.getProperty("java.library.path"));
         qrngServer.ensureReplenishing(0);
     }
 
@@ -91,7 +100,7 @@ public class QrngClient {
 
         try {
             byte[] bytes = clientBuffer.consume(count);
-            if (targetBuffer == null) {
+            if (targetBuffer==NULL_BUFFER) {
                 // converting bytes to Java stream:
                 var buffer = ByteBuffer.wrap(bytes);
                 var bytesStr = Stream.generate(() -> buffer.get()).
@@ -105,9 +114,9 @@ public class QrngClient {
                 targetBuffer.write(i, bytes[i]);
             }
             // All OK
-            return WordFactory.nullPointer(); // Java "null" won't work in Native Image!
+            return NULL_BUFFER; // Java "null" won't work in Native Image!
         } catch (InterruptedException e) {
-            if (targetBuffer == null) {
+            if (targetBuffer == NULL_BUFFER) {
                 throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. We are here to report an exception: "+e.getMessage()+"\"}");
             }
             return toCCharPointer("{\"error\":\"Waiting for random bytes was interrupted: "+e.getMessage()+"\"}");

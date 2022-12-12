@@ -11,7 +11,7 @@ public class QrngTestRandom {
         // Here will be exceptions regarding writing to targetBuffer, which is null and cannot be used from Java
         // (but only from an executable compiled by GraalVM Native Image).
         // Still, we can use this code to debug QrngClient.
-        CCharPointer res = QrngClient.qrng_get_random_bytes(null, null, 10);
+        CCharPointer res = QrngClient.qrng_get_random_bytes(null, QrngClient.NULL_BUFFER, 10);
 
     }
 
