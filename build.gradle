@@ -34,7 +34,7 @@ application {
 */
 plugins {
     id 'java-library'
-    id 'org.graalvm.buildtools.native' version '0.9.11'
+    id 'org.graalvm.buildtools.native' version '0.9.19'
 }
 
 repositories {
@@ -95,7 +95,7 @@ dependencies {
     implementation 'org.cactoos:cactoos:0.+'
 
 //    implementation 'org.java-websocket:Java-WebSocket:1.5.3' -> embedded into src/java/main
-    compileOnly 'org.graalvm.buildtools:native-gradle-plugin:0.9.11'
+    compileOnly 'org.graalvm.buildtools:native-gradle-plugin:0.9.19'
 }
 
 // Excluding all jars from the nativeLibrary configuration.
@@ -117,6 +117,11 @@ configurations.nativeLibraryAndJars.forEach {
 test {
     failFast = true
     // use the task testNative to build and run a test program, which uses the native library
+}
+
+tasks.withType(Test) {
+    // adding the dir containing native lib to java.library.path (for testing)
+    systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile'
 }
 
 task testNative {
@@ -158,7 +163,7 @@ task testNative {
             }
         }
         exec {
-            commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
+             commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
         }
     }
 }
