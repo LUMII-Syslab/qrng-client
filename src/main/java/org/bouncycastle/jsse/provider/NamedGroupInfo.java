@@ -1,7 +1,6 @@
 package org.bouncycastle.jsse.provider;
 
 import java.security.AlgorithmParameters;
-import java.util.*;
 import java.util.logging.Logger;
 
 import org.bouncycastle.jsse.java.security.BCAlgorithmConstraints;

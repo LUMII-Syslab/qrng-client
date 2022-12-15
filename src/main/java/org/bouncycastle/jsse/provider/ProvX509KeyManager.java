@@ -41,7 +41,6 @@ import org.bouncycastle.jsse.BCSNIHostName;
 import org.bouncycastle.jsse.BCX509ExtendedKeyManager;
 import org.bouncycastle.jsse.BCX509Key;
 import org.bouncycastle.jsse.java.security.BCAlgorithmConstraints;
-import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaDefaultTlsCredentialedSigner;
 
 class ProvX509KeyManager

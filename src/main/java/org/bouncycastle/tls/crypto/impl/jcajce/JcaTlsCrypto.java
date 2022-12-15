@@ -18,7 +18,6 @@ import javax.crypto.KeyAgreement;
 
 import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jcajce.util.ProviderJcaJceHelper;
-import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.CryptoHashAlgorithm;
 import org.bouncycastle.tls.crypto.CryptoSignatureAlgorithm;
 import org.bouncycastle.tls.crypto.SRP6Group;
