@@ -18,6 +18,7 @@ import javax.crypto.KeyAgreement;
 
 import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jcajce.util.ProviderJcaJceHelper;
+import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.CryptoHashAlgorithm;
 import org.bouncycastle.tls.crypto.CryptoSignatureAlgorithm;
 import org.bouncycastle.tls.crypto.SRP6Group;
@@ -397,10 +398,11 @@ public class JcaTlsCrypto
 
     public AlgorithmParameters getNamedGroupAlgorithmParameters(int namedGroup) throws GeneralSecurityException
     {
+        // #pqc-tls #injection
         // for injected KEMs (~NamedGroups), return null
         if (InjectedKEMs.isKEMSupported(namedGroup))
             return null; // KEM is supported, no specific parameters (e.g., there are no disabled algorithms)
-                         // #pqc-tls #injection
+
 
         if (NamedGroup.refersToAnXDHCurve(namedGroup))
         {

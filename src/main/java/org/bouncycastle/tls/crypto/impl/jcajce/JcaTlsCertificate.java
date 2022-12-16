@@ -23,6 +23,7 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.jcajce.util.JcaJceHelper;
+import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.Tls13Verifier;
 import org.bouncycastle.tls.crypto.TlsCertificate;
 import org.bouncycastle.tls.crypto.TlsCertificateRole;
@@ -131,9 +132,9 @@ public class JcaTlsCertificate
 
     public TlsVerifier createVerifier(short signatureAlgorithm) throws IOException
     {
-        if (InjectedVerifiers.isSigSchemeSupported(signatureAlgorithm)) {
+        if (InjectedSigVerifiers.isSigSchemeSupported(signatureAlgorithm)) {
             // #pqc-tls #injection
-            return InjectedVerifiers.makeVerifier(crypto, getPublicKey(), signatureAlgorithm);
+            return InjectedSigVerifiers.makeVerifier(crypto, getPublicKey(), signatureAlgorithm);
         }
         switch (signatureAlgorithm)
         {

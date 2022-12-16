@@ -63,6 +63,8 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import org.bouncycastle.crypto.params.X448PublicKeyParameters;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.tls.InjectedKEMs;
+import org.bouncycastle.tls.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -146,8 +148,18 @@ public class PublicKeyFactory
         throws IOException
     {
         AlgorithmIdentifier algID = keyInfo.getAlgorithm();
+        ASN1ObjectIdentifier algOID = algID.getAlgorithm();
 
-        SubjectPublicKeyInfoConverter converter = (SubjectPublicKeyInfoConverter)converters.get(algID.getAlgorithm());
+        // #pqc-tls #injection:
+        if (InjectedKEMs.isKEMSupported((algOID))) {
+            return InjectedKEMs.createPublicKeyParameter(keyInfo, defaultParams);
+        }
+        // #pqc-tls #injection:
+        if (InjectedSigAlgorithms.isSigAlgorithmSupported((algOID))) {
+            return InjectedSigAlgorithms.createPublicKeyParameter(keyInfo, defaultParams);
+        }
+
+        SubjectPublicKeyInfoConverter converter = (SubjectPublicKeyInfoConverter)converters.get(algOID);
         if (null == converter)
         {
             throw new IOException("algorithm identifier in public key not recognised: " + algID.getAlgorithm());

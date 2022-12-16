@@ -36,6 +36,8 @@ import org.bouncycastle.crypto.params.Ed448PublicKeyParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import org.bouncycastle.crypto.params.X448PublicKeyParameters;
+import org.bouncycastle.tls.InjectedKEMs;
+import org.bouncycastle.tls.InjectedSigAlgorithms;
 
 /**
  * Factory to create ASN.1 subject public key info objects from lightweight public keys.
@@ -68,6 +70,15 @@ public class SubjectPublicKeyInfoFactory
     public static SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey)
         throws IOException
     {
+        // #pqc-tls #injection:
+        if (InjectedKEMs.isParameterSupported(publicKey)) {
+            return InjectedKEMs.createSubjectPublicKeyInfo(publicKey);
+        }
+        // #pqc-tls #injection:
+        if (InjectedSigAlgorithms.isParameterSupported(publicKey)) {
+            return InjectedSigAlgorithms.createSubjectPublicKeyInfo(publicKey);
+        }
+
         if (publicKey instanceof RSAKeyParameters)
         {
             RSAKeyParameters pub = (RSAKeyParameters)publicKey;

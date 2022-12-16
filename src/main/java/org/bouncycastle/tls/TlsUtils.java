@@ -120,8 +120,8 @@ public class TlsUtils
             SignatureAndHashAlgorithm.gostr34102012_512);
 
         // adding injected algorithms #pqc-tls #injection
-        for (InjectedSigAlgorithms.OidWithSigAndHash alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
-            addCertSigAlgOID(h, alg.oid, alg.sigAndHash);
+        for (InjectedSigAlgorithms.SigAlgorithmInfo alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
+            addCertSigAlgOID(h, alg.oid(), alg.signatureAndHashAlgorithm());
         }
 
         // TODO[RFC 8998]
@@ -158,8 +158,8 @@ public class TlsUtils
         result.addElement(SignatureAndHashAlgorithm.getInstance(HashAlgorithm.sha1, SignatureAlgorithm.dsa));
 
         // adding injected signature+hash algorithms #pqc-tls #injection
-        for (InjectedSigAlgorithms.OidWithSigAndHash alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
-            result.addElement(alg.sigAndHash);
+        for (InjectedSigAlgorithms.SigAlgorithmInfo alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
+            result.addElement(alg.signatureAndHashAlgorithm());
         }
 
         return result;

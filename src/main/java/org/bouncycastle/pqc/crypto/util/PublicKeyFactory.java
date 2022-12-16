@@ -63,6 +63,8 @@ import org.bouncycastle.pqc.crypto.xmss.XMSSParameters;
 import org.bouncycastle.pqc.crypto.xmss.XMSSPublicKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.mceliece.McElieceCCA2PublicKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.qtesla.QTESLAPublicKeyParameters;
+import org.bouncycastle.tls.InjectedKEMs;
+import org.bouncycastle.tls.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
 import org.bouncycastle.util.Pack;
@@ -241,8 +243,18 @@ public class PublicKeyFactory
         throws IOException
     {
         AlgorithmIdentifier algId = keyInfo.getAlgorithm();
-        SubjectPublicKeyInfoConverter converter = (SubjectPublicKeyInfoConverter)converters.get(algId.getAlgorithm());
+        ASN1ObjectIdentifier algOID = algId.getAlgorithm();
 
+        // #pqc-tls #injection:
+        if (InjectedKEMs.isKEMSupported((algOID))) {
+            return InjectedKEMs.createPublicKeyParameter(keyInfo, defaultParams);
+        }
+        // #pqc-tls #injection:
+        if (InjectedSigAlgorithms.isSigAlgorithmSupported((algOID))) {
+            return InjectedSigAlgorithms.createPublicKeyParameter(keyInfo, defaultParams);
+        }
+
+        SubjectPublicKeyInfoConverter converter = (SubjectPublicKeyInfoConverter)converters.get(algOID);
         if (converter != null)
         {
             return converter.getPublicKeyParameters(keyInfo, defaultParams);

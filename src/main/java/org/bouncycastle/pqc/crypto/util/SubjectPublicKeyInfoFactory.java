@@ -42,6 +42,8 @@ import org.bouncycastle.pqc.crypto.xmss.XMSSMTPublicKeyParameters;
 import org.bouncycastle.pqc.crypto.xmss.XMSSPublicKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.mceliece.McElieceCCA2PublicKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.qtesla.QTESLAPublicKeyParameters;
+import org.bouncycastle.tls.InjectedKEMs;
+import org.bouncycastle.tls.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -64,6 +66,15 @@ public class SubjectPublicKeyInfoFactory
     public static SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey)
         throws IOException
     {
+        // #pqc-tls #injection:
+        if (InjectedKEMs.isParameterSupported(publicKey)) {
+            return InjectedKEMs.createSubjectPublicKeyInfo(publicKey);
+        }
+        // #pqc-tls #injection:
+        if (InjectedSigAlgorithms.isParameterSupported(publicKey)) {
+            return InjectedSigAlgorithms.createSubjectPublicKeyInfo(publicKey);
+        }
+
         if (publicKey instanceof QTESLAPublicKeyParameters)
         {
             QTESLAPublicKeyParameters keyParams = (QTESLAPublicKeyParameters)publicKey;

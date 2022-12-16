@@ -1,6 +1,15 @@
 package org.bouncycastle.jsse.provider;
 
 import java.security.AlgorithmParameters;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.Vector;
 import java.util.logging.Logger;
 
 import org.bouncycastle.jsse.java.security.BCAlgorithmConstraints;
@@ -20,9 +29,6 @@ class NamedGroupInfo
     private static final String PROPERTY_NAMED_GROUPS = "jdk.tls.namedGroups";
 
     // NOTE: Not all of these are necessarily enabled/supported; it will be checked at runtime
-    // NOTE2: "All" and "CANDIDATES_DEFAULT" do not contain injected NamedGroups #pqc-tls #injection
-    //        (the injection-related stuff goes after "All" and "CANDIDATES_DEFAULT")
-
     private enum All
     {
         sect163k1(NamedGroup.sect163k1, "EC"),

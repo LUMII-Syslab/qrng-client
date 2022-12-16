@@ -17,7 +17,7 @@ import java.util.Map;
  * #pqc-tls #injection
  * @author Sergejs Kozlovics
  */
-public class InjectedVerifiers // TODO: => Factory
+public class InjectedSigVerifiers // TODO: => Factory
 {
     public interface Function {
         // the super-interface for the 2 possible function types:

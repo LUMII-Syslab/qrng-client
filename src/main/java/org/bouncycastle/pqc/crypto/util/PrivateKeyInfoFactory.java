@@ -48,6 +48,8 @@ import org.bouncycastle.pqc.crypto.xmss.XMSSPrivateKeyParameters;
 import org.bouncycastle.pqc.crypto.xmss.XMSSUtil;
 import org.bouncycastle.pqc.legacy.crypto.mceliece.McElieceCCA2PrivateKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.qtesla.QTESLAPrivateKeyParameters;
+import org.bouncycastle.tls.InjectedKEMs;
+import org.bouncycastle.tls.InjectedSigAlgorithms;
 import org.bouncycastle.util.Pack;
 
 /**
@@ -82,6 +84,15 @@ public class PrivateKeyInfoFactory
      */
     public static PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException
     {
+        // #pqc-tls #injection:
+        if (InjectedKEMs.isParameterSupported(privateKey)) {
+            return InjectedKEMs.createPrivateKeyInfo(privateKey);
+        }
+        // #pqc-tls #injection:
+        if (InjectedSigAlgorithms.isParameterSupported(privateKey)) {
+            return InjectedSigAlgorithms.createPrivateKeyInfo(privateKey);
+        }
+
         if (privateKey instanceof QTESLAPrivateKeyParameters)
         {
             QTESLAPrivateKeyParameters keyParams = (QTESLAPrivateKeyParameters)privateKey;
