@@ -35,7 +35,7 @@ import org.bouncycastle.pqc.crypto.xmss.XMSSKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.qtesla.QTESLASecurityCategory;
 import org.bouncycastle.util.Integers;
 
-class Utils
+public class Utils
 {
     static final AlgorithmIdentifier AlgID_qTESLA_p_I = new AlgorithmIdentifier(PQCObjectIdentifiers.qTESLA_p_I);
     static final AlgorithmIdentifier AlgID_qTESLA_p_III = new AlgorithmIdentifier(PQCObjectIdentifiers.qTESLA_p_III);
@@ -473,7 +473,7 @@ class Utils
         throw new IllegalArgumentException("unrecognised digest algorithm: " + digestOid);
     }
 
-    static ASN1ObjectIdentifier sphincsPlusOidLookup(SPHINCSPlusParameters params)
+    public static ASN1ObjectIdentifier sphincsPlusOidLookup(SPHINCSPlusParameters params)
     {
         int pId = SPHINCSPlusParameters.getID(params);
 

@@ -91,11 +91,11 @@ public class PrivateKeyInfoFactory
     {
         // #pqc-tls #injection:
         if (InjectedKEMs.isParameterSupported(privateKey)) {
-            return InjectedKEMs.createPrivateKeyInfo(privateKey);
+            return InjectedKEMs.createPrivateKeyInfo(privateKey, attributes);
         }
         // #pqc-tls #injection:
         if (InjectedSigAlgorithms.isParameterSupported(privateKey)) {
-            return InjectedSigAlgorithms.createPrivateKeyInfo(privateKey);
+            return InjectedSigAlgorithms.createPrivateKeyInfo(privateKey, attributes);
         }
 
         if (privateKey instanceof RSAKeyParameters)

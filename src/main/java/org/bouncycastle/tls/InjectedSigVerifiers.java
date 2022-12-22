@@ -31,7 +31,10 @@ public class InjectedSigVerifiers // TODO: => Factory
         boolean verifySignature(byte[] data, byte[] key, DigitallySigned signature);
     }
     private static Map<Integer, Function> injectedVerifiers = new HashMap<>();
-    public static void injectVerifier(int signatureScheme, Function fn) {
+    public static void injectVerifier(int signatureScheme, PublicKeyToVerifierFunction fn) {
+        injectedVerifiers.put(signatureScheme, fn);
+    }
+    public static void injectVerifier(int signatureScheme, VerifySignatureFunction fn) {
         injectedVerifiers.put(signatureScheme, fn);
     }
 
