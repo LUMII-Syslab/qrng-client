@@ -16,31 +16,7 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.jsse.BCSNIHostName;
 import org.bouncycastle.jsse.BCSNIServerName;
 import org.bouncycastle.jsse.BCX509Key;
-import org.bouncycastle.tls.AlertDescription;
-import org.bouncycastle.tls.AlertLevel;
-import org.bouncycastle.tls.CertificateRequest;
-import org.bouncycastle.tls.CertificateStatusRequest;
-import org.bouncycastle.tls.CertificateStatusRequestItemV2;
-import org.bouncycastle.tls.CertificateStatusType;
-import org.bouncycastle.tls.DefaultTlsClient;
-import org.bouncycastle.tls.IdentifierType;
-import org.bouncycastle.tls.OCSPStatusRequest;
-import org.bouncycastle.tls.ProtocolName;
-import org.bouncycastle.tls.ProtocolVersion;
-import org.bouncycastle.tls.SecurityParameters;
-import org.bouncycastle.tls.ServerName;
-import org.bouncycastle.tls.SessionParameters;
-import org.bouncycastle.tls.SignatureAlgorithm;
-import org.bouncycastle.tls.SignatureAndHashAlgorithm;
-import org.bouncycastle.tls.TlsAuthentication;
-import org.bouncycastle.tls.TlsCredentials;
-import org.bouncycastle.tls.TlsDHGroupVerifier;
-import org.bouncycastle.tls.TlsExtensionsUtils;
-import org.bouncycastle.tls.TlsFatalAlert;
-import org.bouncycastle.tls.TlsServerCertificate;
-import org.bouncycastle.tls.TlsSession;
-import org.bouncycastle.tls.TlsUtils;
-import org.bouncycastle.tls.TrustedAuthority;
+import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.IPAddress;
@@ -141,7 +117,15 @@ class ProvTlsClient
 //        @SuppressWarnings("unchecked")
 //        Vector<Integer> namedGroupRoles = namedGroupRolesRaw;
 
-        return NamedGroupInfo.getSupportedGroupsLocalClient(jsseSecurityParameters.namedGroups);
+        Vector<Integer> result = NamedGroupInfo.getSupportedGroupsLocalClient(jsseSecurityParameters.namedGroups);
+
+        // adding injected KEMs: #pqc-tls #injection
+        //result.clear();
+        int i=0;
+        for (int kem : InjectedKEMs.getInjectedKEMsCodePoints())
+            result.add(i++, kem);
+
+        return result;
     }
 
     @Override
@@ -204,7 +188,11 @@ class ProvTlsClient
         jsseSecurityParameters.localSigSchemes = signatureSchemes;
         jsseSecurityParameters.localSigSchemesCert = signatureSchemes;
 
-        return SignatureSchemeInfo.getSignatureAndHashAlgorithms(jsseSecurityParameters.localSigSchemes);
+        Vector<SignatureAndHashAlgorithm> result = SignatureSchemeInfo.getSignatureAndHashAlgorithms(jsseSecurityParameters.localSigSchemes);
+        // adding injected sig algorithms (to TLS client hello) #pqc-tls #injection
+        //result.clear();
+        result.addAll(0, InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms());
+        return result;
     }
 
     @Override

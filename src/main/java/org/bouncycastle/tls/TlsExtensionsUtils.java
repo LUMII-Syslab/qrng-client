@@ -1397,7 +1397,14 @@ public class TlsExtensionsUtils
 
         TlsProtocol.assertEmpty(buf);
 
-        return namedGroups;
+        // #pqc-tls #injection
+        // adding injected KEMs...
+        int[] a = namedGroups;
+        int[] b = InjectedKEMs.getInjectedKEMsCodePoints();
+        int[] result = Arrays.copyOf(a, a.length + b.length);
+        System.arraycopy(b, 0, result, a.length, b.length);
+
+        return result;
     }
 
     public static short[] readSupportedPointFormatsExtension(byte[] extensionData) throws IOException

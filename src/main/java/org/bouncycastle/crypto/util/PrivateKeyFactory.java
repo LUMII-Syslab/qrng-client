@@ -97,10 +97,6 @@ public class PrivateKeyFactory
         ASN1ObjectIdentifier algOID = algId.getAlgorithm();
 
         // #pqc-tls #injection:
-        if (InjectedKEMs.isKEMSupported((algOID))) {
-            return InjectedKEMs.createPrivateKeyParameter(keyInfo);
-        }
-        // #pqc-tls #injection:
         if (InjectedSigAlgorithms.isSigAlgorithmSupported((algOID))) {
             return InjectedSigAlgorithms.createPrivateKeyParameter(keyInfo);
         }

@@ -6,8 +6,12 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
+import org.bouncycastle.tls.crypto.TlsAgreement;
+import org.bouncycastle.tls.crypto.TlsSigner;
+import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 
 import java.io.IOException;
+import java.security.PrivateKey;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -25,39 +29,44 @@ public class InjectedKEMs
 {
     private static final Logger LOG = Logger.getLogger(InjectedKEMs.class.getName());
 
-    private record KEMInfo(ASN1ObjectIdentifier oid, int codePoint, String jcaAlgorithm, String standardName,
-                           InjectedConverter converter) {
+    public interface TlsAgreementFunction {
+        TlsAgreement invoke(JcaTlsCrypto crypto, int kemCodePoint);
+    }
+
+    private record KEMInfo(/*ASN1ObjectIdentifier oid,*/ int codePoint, /*String jcaAlgorithm,*/ String standardName,
+                                                         TlsAgreementFunction tlsAgreementFunction) {
     }
 
     ;
+    private static final Vector<Integer> injectedCodePoints = new Vector<>();
     private static final Map<Integer, KEMInfo> injectedKEMs = new HashMap<>();
-    private static final Map<String, KEMInfo> injectedOids = new HashMap<>();
 
-    public static void injectKEM(ASN1ObjectIdentifier oid, int kemCodePoint, String jcaAlgorithmName,
-                                 String standardName, InjectedConverter privateKeyParamsFn) {
-        KEMInfo info = new KEMInfo(oid, kemCodePoint, jcaAlgorithmName, standardName, privateKeyParamsFn);
+    public static void injectKEM(int kemCodePoint, //String jcaAlgorithmName,
+                                 String standardName, TlsAgreementFunction tlsAgreementFunction) {
+        KEMInfo info = new KEMInfo(kemCodePoint, /*jcaAlgorithmName,*/ standardName, tlsAgreementFunction);
+        injectedCodePoints.add(kemCodePoint);
         injectedKEMs.put(kemCodePoint, info);
-        injectedOids.put(oid.toString(), info);
     }
 
     public static boolean isKEMSupported(int kemCodePoint) {
         return injectedKEMs.containsKey(kemCodePoint);
     }
 
-    public static boolean isKEMSupported(ASN1ObjectIdentifier oid) {
-        return injectedKEMs.containsKey(oid.toString());
-    }
 
     public static int[] getInjectedKEMsCodePoints() {
         // key set -> array of int
-        return injectedKEMs.keySet().stream().mapToInt(i->i).toArray();
+        return injectedCodePoints.stream().mapToInt(i->i).toArray();
     }
 
     public static String getInjectedKEMStandardName(int kemCodePoint) {
         return injectedKEMs.get(kemCodePoint).standardName;
     }
 
-    public static boolean isParameterSupported(AsymmetricKeyParameter param) {
+    public static TlsAgreement getTlsAgreement(JcaTlsCrypto crypto, int kemCodePoint) {
+        return injectedKEMs.get(kemCodePoint).tlsAgreementFunction.invoke(crypto, kemCodePoint);
+    }
+
+/*    public static boolean isParameterSupported(AsymmetricKeyParameter param) {
         for (KEMInfo kem : injectedKEMs.values()) {
             if (kem.converter().isSupportedParameter(param))
                 return true;
@@ -92,5 +101,5 @@ public class InjectedKEMs
                 return kem.converter.createSubjectPublicKeyInfo(publicKey);
         }
         throw new RuntimeException("Unsupported public key params were given");
-    }
+    }*/
 }

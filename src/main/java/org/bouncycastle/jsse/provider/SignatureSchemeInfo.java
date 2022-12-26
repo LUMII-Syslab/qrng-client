@@ -1,23 +1,12 @@
 package org.bouncycastle.jsse.provider;
 
 import java.security.AlgorithmParameters;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.Vector;
+import java.util.*;
 import java.util.logging.Logger;
 
 import org.bouncycastle.jsse.java.security.BCAlgorithmConstraints;
 import org.bouncycastle.jsse.java.security.BCCryptoPrimitive;
-import org.bouncycastle.tls.NamedGroup;
-import org.bouncycastle.tls.ProtocolVersion;
-import org.bouncycastle.tls.SignatureAndHashAlgorithm;
-import org.bouncycastle.tls.SignatureScheme;
-import org.bouncycastle.tls.TlsUtils;
+import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
@@ -136,6 +125,7 @@ class SignatureSchemeInfo
             this.supportedCerts13 = supportedCerts13;
             this.namedGroup13 = namedGroup13;
         }
+
     }
 
     private static final int[] CANDIDATES_DEFAULT = createCandidatesDefault();
@@ -400,12 +390,21 @@ class SignatureSchemeInfo
     private static int[] createCandidatesDefault()
     {
         All[] values = All.values();
-        int[] result = new int[values.length];
+
+
+        Vector<Integer> result = new Vector<Integer>();
         for (int i = 0; i < values.length; ++i)
         {
-            result[i] = values[i].signatureScheme;
+            result.add(values[i].signatureScheme);
         }
-        return result;
+
+        // #pqc-tls #injection
+
+        for (InjectedSigAlgorithms.SigAlgorithmInfo info : InjectedSigAlgorithms.getInjectedSigAndHashAlgorithmsInfos()) {
+            result.add(info.signatureSchemeCodePoint());
+        }
+
+        return result.stream().mapToInt(Integer::intValue).toArray();
     }
 
     private static Map<Integer, SignatureSchemeInfo> createIndex(boolean isFipsContext, JcaTlsCrypto crypto,
@@ -416,6 +415,13 @@ class SignatureSchemeInfo
         {
             addSignatureScheme(isFipsContext, crypto, ng, ss, all);
         }
+
+        // #pqc-tls #injection
+        for (InjectedSigAlgorithms.SigAlgorithmInfo info : InjectedSigAlgorithms.getInjectedSigAndHashAlgorithmsInfos()) {
+            SignatureSchemeInfo ssinfo = new SignatureSchemeInfo(info.signatureSchemeCodePoint(), info.name(), null);
+            ss.put(info.signatureSchemeCodePoint(), ssinfo);
+        }
+
         return ss;
     }
 
@@ -426,6 +432,13 @@ class SignatureSchemeInfo
             if (all.name.equalsIgnoreCase(name))
             {
                 return all.signatureScheme;
+            }
+        }
+
+        // #pqc-tls #injection
+        for (InjectedSigAlgorithms.SigAlgorithmInfo info : InjectedSigAlgorithms.getInjectedSigAndHashAlgorithmsInfos()) {
+            if (info.name().equalsIgnoreCase(name)) {
+                return info.signatureSchemeCodePoint();
             }
         }
 
@@ -451,50 +464,102 @@ class SignatureSchemeInfo
         }
     }
 
-    private final All all;
+    //private final All all;
+    // for injection, we cannot use final enum All; we need some dynamic
+    // data structure for storing the corresponding sig scheme info
+    // #pqc-tls #injection
+    private final int signatureScheme;
+    private final String name;
+    private final String text;
+    private final String jcaSignatureAlgorithm;
+    private final String jcaSignatureAlgorithmBC;
+    private final String keyAlgorithm;
+    private final String keyType13;
+/*    private final boolean supportedPost13;
+    private final boolean supportedPre13;
+    private final boolean supportedCerts13;
+    private final int namedGroup13;*/
     private final AlgorithmParameters algorithmParameters;
     private final NamedGroupInfo namedGroupInfo;
     private final boolean enabled;
     private final boolean disabled13;
 
+    private final boolean supportedPre13;
+    private final boolean supportedPost13;
+    private final boolean supportedCerts13;
+
+
     SignatureSchemeInfo(All all, AlgorithmParameters algorithmParameters, NamedGroupInfo namedGroupInfo,
         boolean enabled, boolean disabled13)
     {
-        this.all = all;
+        //this.all = all;
+        //#pqc-tls #injection:
+        this.signatureScheme = all.signatureScheme;
+        this.name = all.name;
+        this.text = all.text;
+        this.jcaSignatureAlgorithm = all.jcaSignatureAlgorithm;
+        this.jcaSignatureAlgorithmBC = all.jcaSignatureAlgorithmBC;
+        this.keyAlgorithm = all.keyAlgorithm;
+        this.keyType13 = all.keyType13;
+
         this.algorithmParameters = algorithmParameters;
         this.namedGroupInfo = namedGroupInfo;
         this.enabled = enabled;
         this.disabled13 = disabled13;
+
+        this.supportedPre13 = all.supportedPre13;
+        this.supportedPost13 = all.supportedPost13;
+        this.supportedCerts13 = all.supportedCerts13;
+    }
+
+    // #pqc-tls #injection
+    SignatureSchemeInfo(int signatureSchemeCodePoint, String name, AlgorithmParameters algorithmParameters) {
+        this.signatureScheme = signatureSchemeCodePoint;
+        this.name = name;
+        this.text = name;
+        this.jcaSignatureAlgorithm = name;
+        this.jcaSignatureAlgorithmBC = name;
+        this.keyAlgorithm = name;
+        this.keyType13 = name;
+
+        this.algorithmParameters = algorithmParameters;
+        this.namedGroupInfo = null;
+        this.enabled = true;
+        this.disabled13 = false;
+
+        this.supportedPre13 = false;
+        this.supportedPost13 = true;
+        this.supportedCerts13 = true;
     }
 
     short getHashAlgorithm()
     {
-        return SignatureScheme.getHashAlgorithm(all.signatureScheme);
+        return SignatureScheme.getHashAlgorithm(this.signatureScheme);
     }
 
     String getJcaSignatureAlgorithm()
     {
-        return all.jcaSignatureAlgorithm;
+        return this.jcaSignatureAlgorithm;
     }
 
     String getJcaSignatureAlgorithmBC()
     {
-        return all.jcaSignatureAlgorithmBC;
+        return this.jcaSignatureAlgorithmBC;
     }
 
     String getKeyType()
     {
-        return all.keyAlgorithm;
+        return this.keyAlgorithm;
     }
 
     String getKeyType13()
     {
-        return all.keyType13;
+        return this.keyType13;
     }
 
     String getName()
     {
-        return all.name;
+        return this.name;
     }
 
     NamedGroupInfo getNamedGroupInfo()
@@ -504,17 +569,17 @@ class SignatureSchemeInfo
 
     short getSignatureAlgorithm()
     {
-        return SignatureScheme.getSignatureAlgorithm(all.signatureScheme);
+        return SignatureScheme.getSignatureAlgorithm(this.signatureScheme);
     }
 
     SignatureAndHashAlgorithm getSignatureAndHashAlgorithm()
     {
-        return getSignatureAndHashAlgorithm(all.signatureScheme);
+        return getSignatureAndHashAlgorithm(this.signatureScheme);
     }
 
     int getSignatureScheme()
     {
-        return all.signatureScheme;
+        return this.signatureScheme;
     }
 
     boolean isActive(BCAlgorithmConstraints algorithmConstraints, boolean post13Active, boolean pre13Active,
@@ -540,23 +605,23 @@ class SignatureSchemeInfo
 
     boolean isSupportedPost13()
     {
-        return !disabled13 && all.supportedPost13;
+        return !disabled13 && this.supportedPost13;
     }
 
     boolean isSupportedPre13()
     {
-        return all.supportedPre13;
+        return this.supportedPre13;
     }
 
     boolean isSupportedCerts13()
     {
-        return !disabled13 && all.supportedCerts13;
+        return !disabled13 && this.supportedCerts13;
     }
 
     @Override
     public String toString()
     {
-        return all.text;
+        return this.text;
     }
 
     private boolean isNamedGroupOK(boolean post13Allowed, boolean pre13Allowed, NamedGroupInfo.PerConnection namedGroupInfos)
@@ -570,15 +635,15 @@ class SignatureSchemeInfo
         }
 
         return (post13Allowed || pre13Allowed)
-            && (!isECDSA(all.signatureScheme) || NamedGroupInfo.hasAnyECDSALocal(namedGroupInfos));
+            && (!isECDSA(this.signatureScheme) || NamedGroupInfo.hasAnyECDSALocal(namedGroupInfos));
     }
 
     private boolean isPermittedBy(BCAlgorithmConstraints algorithmConstraints)
     {
         Set<BCCryptoPrimitive> primitives = JsseUtils.SIGNATURE_CRYPTO_PRIMITIVES_BC;
 
-        return algorithmConstraints.permits(primitives, all.name, null)
-            && algorithmConstraints.permits(primitives, all.keyAlgorithm, null)
-            && algorithmConstraints.permits(primitives, all.jcaSignatureAlgorithm, algorithmParameters);
+        return algorithmConstraints.permits(primitives, this.name, null)
+            && algorithmConstraints.permits(primitives, this.keyAlgorithm, null)
+            && algorithmConstraints.permits(primitives, this.jcaSignatureAlgorithm, algorithmParameters);
     }
 }

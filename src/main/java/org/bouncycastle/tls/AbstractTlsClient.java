@@ -1,6 +1,7 @@
 package org.bouncycastle.tls;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -141,6 +142,11 @@ public abstract class AbstractTlsClient
     {
         TlsCrypto crypto = getCrypto();
         Vector supportedGroups = new Vector();
+
+        // #pqc-tls #injection
+        // Adding injected KEMs:
+        for (int kem : InjectedKEMs.getInjectedKEMsCodePoints())
+            supportedGroups.add(kem);
 
         if (namedGroupRoles.contains(Integers.valueOf(NamedGroupRole.ecdh)))
         {
@@ -390,6 +396,14 @@ public abstract class AbstractTlsClient
         {
             return null;
         }
+
+        // #pqc-tls #injection
+        // Adding the first injected KEM (if there exists one):
+        for (int kem : InjectedKEMs.getInjectedKEMsCodePoints()) {
+            return TlsUtils.vectorOfOne(Integers.valueOf(kem));
+                // ^^^ returns the first KEM code point (if any)
+        }
+
         if (supportedGroups.contains(Integers.valueOf(NamedGroup.x25519)))
         {
             return TlsUtils.vectorOfOne(Integers.valueOf(NamedGroup.x25519));

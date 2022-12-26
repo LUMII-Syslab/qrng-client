@@ -30,18 +30,7 @@ import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.modes.GCMBlockCipher;
 import org.bouncycastle.crypto.params.SRP6GroupParameters;
 import org.bouncycastle.crypto.prng.DigestRandomGenerator;
-import org.bouncycastle.tls.AlertDescription;
-import org.bouncycastle.tls.CertificateType;
-import org.bouncycastle.tls.EncryptionAlgorithm;
-import org.bouncycastle.tls.HashAlgorithm;
-import org.bouncycastle.tls.MACAlgorithm;
-import org.bouncycastle.tls.NamedGroup;
-import org.bouncycastle.tls.ProtocolVersion;
-import org.bouncycastle.tls.SignatureAlgorithm;
-import org.bouncycastle.tls.SignatureAndHashAlgorithm;
-import org.bouncycastle.tls.SignatureScheme;
-import org.bouncycastle.tls.TlsFatalAlert;
-import org.bouncycastle.tls.TlsUtils;
+import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.CryptoHashAlgorithm;
 import org.bouncycastle.tls.crypto.CryptoSignatureAlgorithm;
 import org.bouncycastle.tls.crypto.TlsCertificate;
@@ -371,6 +360,10 @@ public class BcTlsCrypto
 
     public boolean hasNamedGroup(int namedGroup)
     {
+        // #pqc-tls #injection
+        if (InjectedKEMs.isKEMSupported(namedGroup)) {
+            return true;
+        }
         return NamedGroup.refersToASpecificGroup(namedGroup);
     }
 

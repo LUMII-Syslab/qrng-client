@@ -22,12 +22,12 @@ public class InjectedSigAlgorithms
     /**
      * @param cryptoHashAlgorithmIndex corresponds to org.bouncycastle.tls.crypto.impl.CryptoHashAlgorithm
      *                                 (e.g., CryptoHashAlgorithm.sha256 for rainbowIclassic);
-     *                                 use -1 or 8 (HashAlgorithm.Intrinsic), if the hash algorithm is
+     *                                 use 8 (HashAlgorithm.Intrinsic), if the hash algorithm is
      *                                 built-in into the signature scheme (e.g., for sphincsshake256128frobust)
      */
-    record SigAlgorithmInfo(String name,
+    public record SigAlgorithmInfo(String name,
                             ASN1ObjectIdentifier oid, SignatureAndHashAlgorithm sigAndHash,
-                            int signatureSchemeCodePoint, short cryptoHashAlgorithmIndex,
+                            int signatureSchemeCodePoint, int cryptoHashAlgorithmIndex,
                             InjectedConverter converter,
                             AsymmetricKeyInfoConverter infoToKeyConverter) {
 
@@ -46,7 +46,7 @@ public class InjectedSigAlgorithms
     public static void injectSigAndHashAlgorithm(String name,
                                                  ASN1ObjectIdentifier oid, SignatureAndHashAlgorithm sigAndHash,
                                                  int signatureSchemeCodePoint, // e.g., oqs_sphincsshake256128frobust
-                                                 short cryptoHashAlgorithmIndex,
+                                                 int cryptoHashAlgorithmIndex,
                                                  InjectedConverter converter,
                                                  AsymmetricKeyInfoConverter infoToKeyConverter) {
         SigAlgorithmInfo newAlg = new SigAlgorithmInfo(name, oid, sigAndHash, signatureSchemeCodePoint,
@@ -56,7 +56,11 @@ public class InjectedSigAlgorithms
         injectedOids.put(oid.toString(), newAlg);
     }
 
-    public static Iterable<SigAlgorithmInfo> getInjectedSigAndHashAlgorithms() {
+    public static Collection<? extends SignatureAndHashAlgorithm> getInjectedSigAndHashAlgorithms() {
+        return injected.stream().map(info->info.signatureAndHashAlgorithm()).toList();
+    }
+
+    public static Collection<? extends SigAlgorithmInfo> getInjectedSigAndHashAlgorithmsInfos() {
         return injected;
     }
 
@@ -72,7 +76,7 @@ public class InjectedSigAlgorithms
         return injected.contains(sigAndHashAlgorithm);
     }
 
-    public static short getCryptoHashAlgorithmIndex(int sigSchemeCodePoint) {
+    public static int getCryptoHashAlgorithmIndex(int sigSchemeCodePoint) {
         return injectedSignatureSchemes.get(sigSchemeCodePoint).cryptoHashAlgorithmIndex;
     }
 
@@ -87,7 +91,8 @@ public class InjectedSigAlgorithms
     public static AsymmetricKeyParameter createPrivateKeyParameter(PrivateKeyInfo keyInfo) throws IOException {
         AlgorithmIdentifier algId = keyInfo.getPrivateKeyAlgorithm();
         ASN1ObjectIdentifier algOID = algId.getAlgorithm();
-        return injectedOids.get(algOID).converter.createPrivateKeyParameter(keyInfo);
+        String algKey = algOID.toString();
+        return injectedOids.get(algKey).converter.createPrivateKeyParameter(keyInfo);
     }
 
     public static PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter param, ASN1Set attributes) throws IOException {
@@ -102,7 +107,8 @@ public class InjectedSigAlgorithms
         // ASN.1 => Lightweight BC public key params
         AlgorithmIdentifier algId = keyInfo.getAlgorithm();
         ASN1ObjectIdentifier algOID = algId.getAlgorithm();
-        return injectedOids.get(algOID).converter.createPublicKeyParameter(keyInfo, defaultParams);
+        String algKey = algOID.toString();
+        return injectedOids.get(algKey).converter.createPublicKeyParameter(keyInfo, defaultParams);
     }
     public static SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey) throws IOException {
         // Lightweight BC public key params => ASN.1

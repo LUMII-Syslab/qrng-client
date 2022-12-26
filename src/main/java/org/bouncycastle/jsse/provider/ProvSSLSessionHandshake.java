@@ -1,5 +1,6 @@
 package org.bouncycastle.jsse.provider;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +64,13 @@ class ProvSSLSessionHandshake
     @Override
     public String[] getLocalSupportedSignatureAlgorithms()
     {
-        return SignatureSchemeInfo.getJcaSignatureAlgorithms(jsseSecurityParameters.localSigSchemesCert);
+        // by SK
+        String[] result = SignatureSchemeInfo.getJcaSignatureAlgorithms(jsseSecurityParameters.localSigSchemesCert);
+        ArrayList<String> r = new ArrayList<>();
+        for (String s: result)
+            r.add(s);
+        r.add("SPHINCS+");
+        return r.toArray(new String[] {});
     }
 
     @Override

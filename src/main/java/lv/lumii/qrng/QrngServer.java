@@ -53,6 +53,8 @@ public class QrngServer {
 
         SSLFactory sslf2 = SSLFactory.builder()
                 .withIdentityMaterial(token.key(), token.password(), token.certificateChain())
+                .withNeedClientAuthentication()
+                .withWantClientAuthentication()
                 .withProtocols("TLSv1.3")
                 .withTrustMaterial(trustMgrFact)
                 .withSecureRandom(SecureRandom.getInstanceStrong())
@@ -71,7 +73,6 @@ public class QrngServer {
                 super.onSetSSLParameters(sslParameters);
                 List<SNIServerName> list = new LinkedList<>();
                 try {
-                    System.out.println("setting host name (QrngServer) "+qrngProperties.host());
                     list.add(new SNIHostName(qrngProperties.host()));
                     sslParameters.setServerNames(list);
                 } catch (Exception e) {
@@ -124,8 +125,7 @@ public class QrngServer {
 
     public synchronized void ensureReplenishing(int afterSeconds) {
 
-        //System.load("/Users/sergejs/.sdkman/candidates/java/current/lib/libosxsecurity.dylib");
-        //System.loadLibrary("osxsecurity");
+
         System.out.println(" ensureReplenishing started");
 
         boolean isClosed;

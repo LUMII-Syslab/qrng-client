@@ -617,6 +617,10 @@ public class JcaTlsCrypto
 
     public boolean hasNamedGroup(int namedGroup)
     {
+        // #pqc-tls #injection
+        if (InjectedKEMs.isKEMSupported(namedGroup)) {
+            return true;
+        }
         final Integer key = Integers.valueOf(namedGroup);
         synchronized (supportedNamedGroups)
         {

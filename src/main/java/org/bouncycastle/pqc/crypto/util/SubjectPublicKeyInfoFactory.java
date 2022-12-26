@@ -67,10 +67,6 @@ public class SubjectPublicKeyInfoFactory
         throws IOException
     {
         // #pqc-tls #injection:
-        if (InjectedKEMs.isParameterSupported(publicKey)) {
-            return InjectedKEMs.createSubjectPublicKeyInfo(publicKey);
-        }
-        // #pqc-tls #injection:
         if (InjectedSigAlgorithms.isParameterSupported(publicKey)) {
             return InjectedSigAlgorithms.createSubjectPublicKeyInfo(publicKey);
         }

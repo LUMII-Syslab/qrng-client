@@ -45,7 +45,7 @@ public class QrngClientToken {
     }
 
     public Certificate[] certificateChain() throws Exception {
-        Certificate[] arr = this.keyStore.value().getCertificateChain("qrng_user");
-        return this.keyStore.value().getCertificateChain(this.alias);
+        Certificate[] arr = this.keyStore.value().getCertificateChain(this.alias);
+        return arr;
     }
 }

@@ -85,10 +85,6 @@ public class PrivateKeyInfoFactory
     public static PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException
     {
         // #pqc-tls #injection:
-        if (InjectedKEMs.isParameterSupported(privateKey)) {
-            return InjectedKEMs.createPrivateKeyInfo(privateKey, attributes);
-        }
-        // #pqc-tls #injection:
         if (InjectedSigAlgorithms.isParameterSupported(privateKey)) {
             return InjectedSigAlgorithms.createPrivateKeyInfo(privateKey, attributes);
         }

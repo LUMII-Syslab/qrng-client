@@ -10,6 +10,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
@@ -49,6 +50,17 @@ public class SPHINCSPlusKeyFactorySpi
         {
             // get the DER-encoded Key according to X.509 from the spec
             byte[] encKey = ((X509EncodedKeySpec)keySpec).getEncoded();
+            for (int i=0; i< encKey.length; i++)
+                System.out.printf("%02X ", encKey[i]>=0?encKey[i]:256+encKey[i]);
+            System.out.println();
+/* ASN.1: SEQUENCE (2 elem)
+  SEQUENCE (2 elem)
+    OBJECT IDENTIFIER 1.3.9999.6.7.1
+    NULL
+  BIT STRING (256 bit) 0001011010101111001101001101001010100000100001010100001010100110111111…
+  in HEX: 30 2F 30 0A 06 06 2B CE 0F 06 07 01 05 00 03 21 00 16 AF 34 D2 A0 85 42 A6 FC D8 B9 CE AB 9E A4 FA 4B F6 40 A5 CD 86 6F 87 AA D1 6A 97 16 03 E1 73
+ */
+            //encKey = Arrays.copyOfRange( encKey, 14+2+1, encKey.length); // for our sphincs+ by SK
 
             // decode the SubjectPublicKeyInfo data structure to the pki object
             try

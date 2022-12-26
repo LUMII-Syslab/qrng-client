@@ -151,10 +151,6 @@ public class PublicKeyFactory
         ASN1ObjectIdentifier algOID = algID.getAlgorithm();
 
         // #pqc-tls #injection:
-        if (InjectedKEMs.isKEMSupported((algOID))) {
-            return InjectedKEMs.createPublicKeyParameter(keyInfo, defaultParams);
-        }
-        // #pqc-tls #injection:
         if (InjectedSigAlgorithms.isSigAlgorithmSupported((algOID))) {
             return InjectedSigAlgorithms.createPublicKeyParameter(keyInfo, defaultParams);
         }

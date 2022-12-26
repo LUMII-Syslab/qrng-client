@@ -1,7 +1,9 @@
 package org.bouncycastle.tls.crypto.impl.jcajce;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.PublicKey;
@@ -269,6 +271,22 @@ public class JcaTlsCertificate
 //        case SignatureScheme.sm2sig_sm3:
 
         default:
+            // #pqc-tls #injection
+            if (InjectedSigVerifiers.isSigSchemeSupported(signatureScheme)) {
+                //TODO: TlsVerifier v = InjectedSigVerifiers.makeVerifier(crypto, pubKeyRSA, signatureScheme);
+                return new Tls13Verifier() {
+                    @Override
+                    public OutputStream getOutputStream() throws IOException {
+                        return new ByteArrayOutputStream();
+                    }
+
+                    @Override
+                    public boolean verifySignature(byte[] signature) throws IOException {
+                        return true; //TODO: by SK
+                    }
+                };
+            }
+
             throw new TlsFatalAlert(AlertDescription.certificate_unknown);
         }
     }

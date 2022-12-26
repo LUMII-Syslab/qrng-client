@@ -44,6 +44,7 @@ import org.bouncycastle.tls.crypto.TlsSecret;
 import org.bouncycastle.tls.crypto.TlsStreamSigner;
 import org.bouncycastle.tls.crypto.TlsStreamVerifier;
 import org.bouncycastle.tls.crypto.TlsVerifier;
+import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
 import org.bouncycastle.util.Shorts;
@@ -120,7 +121,7 @@ public class TlsUtils
             SignatureAndHashAlgorithm.gostr34102012_512);
 
         // adding injected algorithms #pqc-tls #injection
-        for (InjectedSigAlgorithms.SigAlgorithmInfo alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
+        for (InjectedSigAlgorithms.SigAlgorithmInfo alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithmsInfos()) {
             addCertSigAlgOID(h, alg.oid(), alg.signatureAndHashAlgorithm());
         }
 
@@ -158,8 +159,8 @@ public class TlsUtils
         result.addElement(SignatureAndHashAlgorithm.getInstance(HashAlgorithm.sha1, SignatureAlgorithm.dsa));
 
         // adding injected signature+hash algorithms #pqc-tls #injection
-        for (InjectedSigAlgorithms.SigAlgorithmInfo alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
-            result.addElement(alg.signatureAndHashAlgorithm());
+        for (SignatureAndHashAlgorithm alg: InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms()) {
+            result.addElement(alg);
         }
 
         return result;
@@ -1243,6 +1244,9 @@ public class TlsUtils
         {
             addIfSupported(result, crypto, (SignatureAndHashAlgorithm)candidates.elementAt(i));
         }
+
+        // adding injected sig algorithms (to TLS client hello) #pqc-tls #injection
+        result.addAll(0, InjectedSigAlgorithms.getInjectedSigAndHashAlgorithms());
         return result;
     }
 
@@ -5354,6 +5358,11 @@ public class TlsUtils
                 {
                     agreement = crypto.createDHDomain(new TlsDHConfig(supportedGroup, true)).createDH();
                 }
+            }
+            else {
+                // #pqc-tls #injection
+                assert (crypto instanceof JcaTlsCrypto);
+                agreement = InjectedKEMs.getTlsAgreement((JcaTlsCrypto)crypto, supportedGroup);
             }
 
             if (null != agreement)

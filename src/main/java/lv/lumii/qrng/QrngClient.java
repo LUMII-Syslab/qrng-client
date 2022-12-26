@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 
+import org.bouncycastle.pqc.InjectablePQC;
 import org.graalvm.word.WordFactory;
 import org.slf4j.*;
 
@@ -19,6 +20,8 @@ import org.graalvm.nativeimage.UnmanagedMemory;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.c.struct.SizeOf;
 import org.graalvm.nativeimage.c.type.CCharPointer;
+
+import javax.net.ssl.SSLContext;
 
 public class QrngClient {
 
@@ -41,6 +44,8 @@ public class QrngClient {
             NULL_BUFFER = null; // used from Java mode of GraalVM
         }
 
+        InjectablePQC.inject();
+
         /*
         do not use log4j2 in native executables/libraries!!!
         slf4j with simple logger is ok;
@@ -49,7 +54,6 @@ public class QrngClient {
             implementation 'org.slf4j:slf4j-api:2.+'
             implementation 'org.slf4j:slf4j-simple:2.+'
          */
-
 
         File f = new File(QrngClient.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         mainExecutable = f.getAbsolutePath();
@@ -69,13 +73,30 @@ public class QrngClient {
 
         qrngServer = new QrngServer(qrngProperties, clientBuffer);
 
+        try {
+            qrngProperties.clientToken().certificateChain();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        Provider tlsProvider = null;
+        try {
+            tlsProvider = SSLContext.getInstance("TLS").getProvider();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        logger.debug("Using TLS provider: "+tlsProvider.getName()); // BCJSSE
+
+        //System.load("/Users/sergejs/.sdkman/candidates/java/current/lib/libosxsecurity.dylib");
+        //System.load("/Users/sergejs/graalvm-ce-java17-22.3.0/Contents/Home/lib/libosxsecurity.dylib");
+        //System.loadLibrary("osxsecurity");
 
 
-        BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
+        /*BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
         Security.insertProviderAt(jsseProvider, 1);
 
         BouncyCastlePQCProvider bcProvider = new BouncyCastlePQCProvider(); // BCPQC
-        Security.insertProviderAt(bcProvider, 1);
+        Security.insertProviderAt(bcProvider, 1);*/
     }
 
 
