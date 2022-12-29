@@ -135,12 +135,6 @@ public class InjectedSigAlgorithms
 
         @Override
         public void configure(ConfigurableProvider provider) {
-            /* TODO:??? [from org.bouncycastle.pqc.jcajce.provider.SPHINCSPlus#configure]
-                provider.addAlgorithm("KeyFactory.SPHINCSPLUS", PREFIX + "SPHINCSPlusKeyFactorySpi");
-                provider.addAlgorithm("KeyPairGenerator.SPHINCSPLUS", PREFIX + "SPHINCSPlusKeyPairGeneratorSpi");
-                provider.addAlgorithm("Alg.Alias.KeyFactory.SPHINCS+", "SPHINCSPLUS");
-                provider.addAlgorithm("Alg.Alias.KeyPairGenerator.SPHINCS+", "SPHINCSPLUS");
-             */
             provider.addAlgorithm("Alg.Alias.Signature."+info.oid, info.name);
             provider.addAlgorithm("Alg.Alias.Signature.OID."+info.oid, info.name);
 
