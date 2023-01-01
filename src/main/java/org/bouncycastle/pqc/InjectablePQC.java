@@ -11,6 +11,7 @@ import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.pqc.crypto.frodo.*;
+import org.bouncycastle.pqc.crypto.util.Utils;
 import org.bouncycastle.tls.crypto.*;
 import org.bouncycastle.tls.crypto.impl.jcajce.JceTlsSecret;
 import org.bouncycastle.util.Pack;
@@ -19,7 +20,6 @@ import org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusParameters;
 import org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPrivateKeyParameters;
 import org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPublicKeyParameters;
 import org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusSigner;
-import org.bouncycastle.pqc.crypto.util.Utils;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPrivateKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SPHINCSPlusKeyFactorySpi;
@@ -69,20 +69,16 @@ public class InjectablePQC {
     //public static final int oqs_sphincssha256128frobust_signaturescheme_codepoint = 0xfe5e;
 
 
-    public static void main(String[] args) {
-        //org.openquantumsafe.KeyEncapsulation kem;
-        for (String s : org.openquantumsafe.Sigs.get_enabled_sigs()) {
-            System.out.println("SIG "+s);
-        }
-
-        //
-        //System.out.println("injectabled pqc main");
-    }
 
     private static String OQS_SIG_NAME =
             "SPHINCS+-SHAKE256-128f-robust"
             //"SPHINCS+-SHA256-128f-robust"
             ;
+    //private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.shake256_128f;
+    private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.shake_128f;
+    //private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.sha2_128f;
+    private static int sphincsPlusParametersAsInt = SPHINCSPlusParameters.getID(sphincsPlusParameters);
+
     public static void inject() {
         // PQC signatures are huge; increasing the max handshake size:
         System.setProperty("jdk.tls.maxHandshakeMessageSize", String.valueOf(32768 * 32));
@@ -95,10 +91,6 @@ public class InjectablePQC {
         //int sigCodePoint = InjectablePQC.oqs_sphincssha256128frobust_signaturescheme_codepoint;
         short sigCodePointHi = (short)(sigCodePoint >> 8);
         short sigCodePointLo = (short)(sigCodePoint & 0xFF);
-        SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.shake_128f;
-        //SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.sha2_128f;
-        int sphincsPlusParametersAsInt = SPHINCSPlusParameters.getID(sphincsPlusParameters);
-        System.out.println("SPHINCS+ params as int = "+sphincsPlusParametersAsInt);
         int sphincsPlusPKLength = 32;
         int sphincsPlusSKLength = 64;
         // ^^^ see: https://github.com/sphincs/sphincsplus
@@ -118,8 +110,8 @@ public class InjectablePQC {
 
                     @Override
                     public AsymmetricKeyParameter createPrivateKeyParameter(PrivateKeyInfo keyInfo) throws IOException {
-                        byte[] keyEnc = ASN1OctetString.getInstance(keyInfo.parsePrivateKey()).getOctets();
-                        // ^^^ keyInfo.getEncoded() contains also additional stuff, including OID
+                        byte[] keyEnc = ASN1OctetString.getInstance(keyInfo.parsePrivateKey()).getOctets(); // £££
+                        // ^^^ if it were: keyInfo.getEncoded() contains also additional stuff, including OID
                         SPHINCSPlusParameters spParams = sphincsPlusParameters;
                         return new SPHINCSPlusPrivateKeyParameters(spParams, Arrays.copyOfRange(keyEnc, 0, sphincsPlusSKLength));
                     }
@@ -128,10 +120,16 @@ public class InjectablePQC {
                     public PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException {
                         SPHINCSPlusPrivateKeyParameters params = (SPHINCSPlusPrivateKeyParameters) privateKey;
 
-                        byte[] encoding = params.getEncoded();
+                        byte[] encoding = params.getEncoded(); // ££££
                         byte[] pubEncoding = params.getEncodedPublicKey();
 
-                        AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));
+                        // remove alg params (4 bytes)
+                        encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+                        pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length);
+
+                        AlgorithmIdentifier algorithmIdentifier =
+                                new AlgorithmIdentifier(sigOid);
+                                //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
                         return new PrivateKeyInfo(algorithmIdentifier, new DEROctetString(encoding), attributes, pubEncoding);
                     }
 
@@ -152,7 +150,11 @@ public class InjectablePQC {
 
                         byte[] encoding = params.getEncoded();
 
-                        AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
+                        // remove the first 4 bytes (alg. params)
+                        encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+
+                        AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(sigOid);//??? -- does not matter
+                       // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
                         return new SubjectPublicKeyInfo(algorithmIdentifier, new DEROctetString(encoding));
                     }
                 },
@@ -166,10 +168,10 @@ public class InjectablePQC {
 
             SPHINCSPlusPrivateKeyParameters p = (SPHINCSPlusPrivateKeyParameters) sk.getKeyParams();
 
-            /*byte[] keys = p.getEncoded(); // TODO: read sphincsPlusParameters from the first 4 big-endian bytes
+            byte[] keys = p.getEncoded(); // TODO: read sphincsPlusParameters from the first 4 big-endian bytes
             SPHINCSPlusPrivateKeyParameters newP = new SPHINCSPlusPrivateKeyParameters(sphincsPlusParameters,
                     Arrays.copyOfRange(keys, 4, keys.length));
-            */
+            p = newP;
             signer.init(true, p);
 
             return signer;
@@ -234,84 +236,73 @@ public class InjectablePQC {
             return new MyStreamSigner(algorithm);
         }
 
+        public static byte[] generateSignature_oqs(byte[] message, byte[] sk) {
+            org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
+                    OQS_SIG_NAME,
+                    sk);
+
+            byte[] oqsSignature = oqsSigner.sign(message);
+            return oqsSignature;
+        }
+
+        public static byte[] generateSignature_bc(byte[] message, byte[] sk) {
+            SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
+            signer.init(true, new SPHINCSPlusPrivateKeyParameters(sphincsPlusParameters, sk));
+            //signer.initForSigning(new SPHINCSPlusPrivateKeyParameters(SPHINCSPlusParameters.shake_128f, sk));
+            byte[] bcSignature = signer.generateSignature(message);
+            return bcSignature;
+        }
+
+        public static boolean verifySignature_oqs(byte[] message, byte[] signature, byte[] publicKey) {
+            org.openquantumsafe.Signature oqsVerifier = new org.openquantumsafe.Signature(
+                    OQS_SIG_NAME);
+            boolean result = oqsVerifier.verify(message, signature, publicKey);
+            return result;
+        }
+
+        public static boolean verifySignature_bc(byte[] message, byte[] signature, byte[] publicKey) {
+            SPHINCSPlusSigner verifier = new SPHINCSPlusSigner();
+            verifier.init(false, new SPHINCSPlusPublicKeyParameters(sphincsPlusParameters, publicKey));
+            boolean result = verifier.verifySignature(message, signature);
+            return result;
+        }
 
         @Override
         public byte[] generateSignature(byte[] message) {
             // override with oqs implementation
             byte[] sk = skParams.getEncoded();
             int sphincsPlusParams = Pack.bigEndianToInt(sk, 0);
-            System.out.println("GENERATING SIG, SPHINCS+ params = "+sphincsPlusParams+" msg len="+message.length);
             sk = Arrays.copyOfRange(sk, 4, sk.length);
 
-            System.out.println("SK (generateSignature):");
 
-            for (byte b : sk) {
-                System.out.printf("%02x ", b);
-            }
+            byte[] pk = skParams.getPublicKey();
+            byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
+            byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
+            System.out.printf("SECRET KEY:\n%s\n", InjectablePQC.byteArrayToString(sk));
 
-            System.out.println();
+            //System.out.printf("OQS SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature));
+            System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
+                    InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
+                    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
+            //System.out.printf("BC SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(bcSignature));
+            System.out.printf("BC SIGNATURE VERIFY: oqs:%b bc:%b\n",
+                    InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
+                    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
 
-            System.out.println("MSG (generateSignature):");
-            for (byte b : message) {
-                System.out.printf("%02x ", b);
-            }
-            System.out.println();
-
-            org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
-                    OQS_SIG_NAME,
-                    sk);
-
-            byte[] oqsSignature = oqsSigner.sign(message);
-            System.out.println("COMPUTED SIG: "+oqsSignature.length+" "+Thread.currentThread());
-            for (byte b : Arrays.copyOfRange(oqsSignature, 0, 20)) {
-                System.out.printf("%02x ", b);
-            }
-            System.out.println("...");
-
-            byte[] overridden = super.generateSignature(message);
-            System.out.println("OVERRIDDEN SIG: "+overridden.length);
-            for (byte b : Arrays.copyOfRange(overridden, 0, 20)) {
-                System.out.printf("%02x ", b);
-            }
-            System.out.println("...");
-
-            byte[] pub = this.skParams.getPublicKey();
-
-            SPHINCSPlusSigner verifier = new SPHINCSPlusSigner();
-            verifier.init(false, new SPHINCSPlusPublicKeyParameters(skParams.getParameters(), skParams.getPublicKey()));
-            System.out.println("COMPUTED VERIFY: "+this.verifySignature3(message, oqsSignature, pub)+" old:"+verifier.verifySignature(message, oqsSignature));
-            System.out.println("OVERRIDDEN VERIFY: "+this.verifySignature3(message, overridden, pub)+" old:"+verifier.verifySignature(message, overridden));
-
-            //return oqsSignature;//  return oqsSignature;
             return oqsSignature;
         }
 
-        public boolean verifySignature3(byte[] message, byte[] signature, byte[] publicKey) {
-            org.openquantumsafe.Signature oqsVerifier = new org.openquantumsafe.Signature(
-                    OQS_SIG_NAME);
-            boolean result = oqsVerifier.verify(message, signature, publicKey);
-            return result;
-        }
+
         @Override
         public boolean verifySignature(byte[] message, byte[] signature) {
 
             // override with oqs implementation
             byte[] pk = pkParams.getEncoded();
             int sphincsPlusParams = Pack.bigEndianToInt(pk, 0);
-            System.out.println("VERIFYING SIG(len="+signature.length+"), SPHINCS+ params = "+sphincsPlusParams);
-
-            System.out.println("PK: "+pk.length);
-            for (byte b : pk) {
-                System.out.printf("%02x ", b);
-            }
-            System.out.println();
             // 4 bytes big endian - params ID
             pk = Arrays.copyOfRange(pk, 4, pk.length);
 
-            org.openquantumsafe.Signature oqsVerifier = new org.openquantumsafe.Signature(
-                    OQS_SIG_NAME);
-            boolean result = oqsVerifier.verify(message, signature, pk);
-            System.out.println("VERIFY RESULT: "+result);
+            boolean result = InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, signature, pk);
             return result;
         }
 
@@ -337,41 +328,7 @@ public class InjectablePQC {
                 byte[] sk = skParams.getEncoded();
 
                 byte[] signature = InjectableSphincsPlusTlsSigner.this.generateSignature(data);
-
-                int sphincsPlusParams = Pack.bigEndianToInt(sk, 0);
-                System.out.println("SK (TlsStreamSigner), SPHINCS+ params = "+sphincsPlusParams);
-
-                sk = Arrays.copyOfRange(sk, 4, sk.length);
-                for (byte b : sk) {
-                    System.out.printf("%02x ", b);
-                }
-
-                System.out.println();
-                System.out.println("JAVA SIG: "+signature.length);
-                for (byte b : Arrays.copyOfRange(signature,0,20)) {
-                    System.out.printf("%02x ", b);
-                }
-                System.out.println("...");
-
-                org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
-                        OQS_SIG_NAME,
-                        sk);
-                byte[] oqsSignature = oqsSigner.sign(data);
-                oqsSigner.print_signature();
-
-                System.out.println("MSG (TlsStreamSigner):");
-                for (byte b : data) {
-                    System.out.printf("%02x ", b);
-                }
-                System.out.println();
-
-                System.out.println("C SIG: "+oqsSignature.length+" msg len="+data.length+" "+Thread.currentThread());
-                for (byte b : Arrays.copyOfRange(oqsSignature, 0, 20)) {
-                    System.out.printf("%02x ", b);
-                }
-                System.out.println("...");
-
-                return signature;//return oqsSignature;
+                return signature;
             }
         }
     }
@@ -432,5 +389,54 @@ public class InjectablePQC {
         }
     }
 
+    ///// TESTS /////
+
+    public static String byteArrayToString(byte[] a) {
+        return byteArrayToString(a, "");
+    }
+    public static String byteArrayToString(byte[] a, String delim) {
+        String s = "";
+        for (byte b : a) {
+            if (s.length()>0)
+                s += delim;
+            s += String.format("%02x", b);
+        }
+        return s;
+    }
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
+    public static void main(String args[]) {
+        for (String s : org.openquantumsafe.Sigs.get_enabled_sigs()) {
+            //System.out.println("SIG "+s);
+        }
+        String pkStr = "8776619e7fc2ca19b0be40157190208680007c01b855256123e2866ae71ad34616af34d2a08542a6fcd8b9ceab9ea4fa4bf640a5cd866f87aad16a971603e173";
+        byte[] sk = hexStringToByteArray(pkStr);
+        byte[] pk = Arrays.copyOfRange(sk, sk.length-32, sk.length);
+        byte[] message = new byte[] {};// {0, 1, 2};
+
+        System.out.printf("Signing message '%s'...\n", byteArrayToString(message));
+
+        byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
+        byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
+        System.out.printf("SECRET KEY:\n%s\n", InjectablePQC.byteArrayToString(sk));
+
+        //System.out.printf("OQS SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature));
+        System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
+                InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
+                InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
+        //System.out.printf("BC SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(bcSignature));
+        System.out.printf("BC SIGNATURE VERIFY: oqs:%b bc:%b\n",
+                InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
+                InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
+
+    }
 
 }
