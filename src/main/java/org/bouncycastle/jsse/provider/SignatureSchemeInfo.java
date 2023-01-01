@@ -125,7 +125,6 @@ class SignatureSchemeInfo
             this.supportedCerts13 = supportedCerts13;
             this.namedGroup13 = namedGroup13;
         }
-
     }
 
     private static final int[] CANDIDATES_DEFAULT = createCandidatesDefault();
@@ -347,7 +346,18 @@ class SignatureSchemeInfo
         String[] names = PropertyUtils.getStringArraySystemProperty(propertyName);
         if (null == names)
         {
-            return CANDIDATES_DEFAULT;
+            // return a concatenation of CANDIDATES_DEFAULT and injected sig+hash algorithms code points
+            // #pqc-tls #injection
+            Collection<? extends InjectedSigAlgorithms.SigAlgorithmInfo> injected =
+                    InjectedSigAlgorithms.getInjectedSigAndHashAlgorithmsInfos();
+            int[] retVal = new int[CANDIDATES_DEFAULT.length+injected.size()];
+
+            for (int i=0; i<CANDIDATES_DEFAULT.length; i++)
+                retVal[i] = CANDIDATES_DEFAULT[i];
+            int i= CANDIDATES_DEFAULT.length;;
+            for (InjectedSigAlgorithms.SigAlgorithmInfo info : injected)
+                retVal[i++] = info.signatureSchemeCodePoint();
+            return retVal;
         }
 
         int[] result = new int[names.length];
