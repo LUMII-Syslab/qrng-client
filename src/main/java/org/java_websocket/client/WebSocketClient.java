@@ -489,9 +489,6 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
       ostream = socket.getOutputStream();
 
       sendHandshake();
-      //SSLSocket sslSocket = (SSLSocket) socket;
-      //sslSocket.startHandshake(); // by SK
-
     } catch (/*IOException | SecurityException | UnresolvedAddressException | InvalidHandshakeException | ClosedByInterruptException | SocketTimeoutException */Exception e) {
       onWebsocketError(engine, e);
       engine.closeConnection(CloseFrame.NEVER_CONNECTED, e.getMessage());
@@ -508,25 +505,8 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
       throw e;
     }
 
-    // wwt by SK
-    WebsocketWriteThread wwt = new WebsocketWriteThread(this);
-    writeThread = new Thread(wwt);
+    writeThread = new Thread(new WebsocketWriteThread(this));
     writeThread.start();
-
-    // by SK: start writeThread only after handshake has been completed
-    // by SK: -- writeThread.start();
-    // by SK=>
-    if (socket instanceof SSLSocket) {
-      System.err.println("HANDSHAKE SET");
-      SSLSocket sslSocket = (SSLSocket) socket;
-      sslSocket.addHandshakeCompletedListener((ev) -> {
-        System.err.println("HANDSHAKE DONE" +ev);
-        wwt.onHandshakeDone();
-//        writeThread.start();
-      });
-
-    }
-    // <= by SK
 
     byte[] rawbuffer = new byte[WebSocketImpl.RCVBUF];
     int readBytes;
@@ -807,16 +787,9 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
   private class WebsocketWriteThread implements Runnable {
 
     private final WebSocketClient webSocketClient;
-    // by SK:
-    private boolean isHandshakeDone = false;
 
     WebsocketWriteThread(WebSocketClient webSocketClient) {
       this.webSocketClient = webSocketClient;
-    }
-
-    // by SK:
-    public void onHandshakeDone() {
-      this.isHandshakeDone = true;
     }
 
     @Override
@@ -838,18 +811,6 @@ public abstract class WebSocketClient extends AbstractWebSocket implements Runna
      * @throws IOException if write or flush did not work
      */
     private void runWriteData() throws IOException {
-      // => by SK:
-      System.out.println("Waiting for handshake Done = "+this.isHandshakeDone);
-      /*while (!this.isHandshakeDone) {
-        try {
-          Thread.sleep(1);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-          //throw new RuntimeException(e);
-        }
-      }*/
-      System.out.println("Handshake Done = "+this.isHandshakeDone);
-      // <= by SK:
       try {
         while (!Thread.interrupted()) {
           ByteBuffer buffer = engine.outQueue.take();
