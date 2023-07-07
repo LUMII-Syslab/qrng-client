@@ -135,6 +135,7 @@ task testNative {
                         '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
                         '-Wall',
                         '-l'+artifactName,
+                        '-lpthread',
                         '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
                         'src/test/cpp/test.cpp',
                 libFile
@@ -182,6 +183,7 @@ graalvmNative {
             //buildArgs.add('--enable-url-protocols')
             buildArgs.add('--enable-all-security-services')
             buildArgs.add('-H:ReflectionConfigurationFiles='+project.buildDir.absolutePath+'/../reflection.json')
+            buildArgs.add('-H:JNIConfigurationFiles='+project.buildDir.absolutePath+'/../jni.json')
             buildArgs.add('-cp')
             buildArgs.add(String.join(File.pathSeparator,configurations.compileClasspath.files.collect { "$it.name" }))
         }

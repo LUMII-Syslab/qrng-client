@@ -40,7 +40,7 @@ public class Signature {
     /**
      * Keep native pointers for Java to remember which C memory it is managing.
      */
-    private long native_sig_handle_;
+    public long native_sig_handle_ = 0; // made public by SK, accessed from JNI
 
     private byte[] public_key_;
     private byte[] secret_key_;
