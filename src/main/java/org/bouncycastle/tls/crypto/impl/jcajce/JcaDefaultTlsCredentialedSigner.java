@@ -9,6 +9,7 @@ import java.security.interfaces.RSAPrivateKey;
 import org.bouncycastle.tls.*;
 import org.bouncycastle.tls.crypto.TlsCryptoParameters;
 import org.bouncycastle.tls.crypto.TlsSigner;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigners;
 
 /**
  * Credentialed class for generating signatures based on the use of primitives from the JCA.

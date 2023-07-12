@@ -2,6 +2,7 @@ package org.bouncycastle.tls;
 
 import org.bouncycastle.tls.crypto.CryptoHashAlgorithm;
 import org.bouncycastle.tls.crypto.TlsCryptoUtils;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 
 public class SignatureScheme
 {
@@ -199,8 +200,6 @@ public class SignatureScheme
 
     public static short getHashAlgorithm(int signatureScheme)
     {
-        if (InjectedSigAlgorithms.isSigSchemeSupported(signatureScheme))
-            return (short)InjectedSigAlgorithms.getCryptoHashAlgorithmIndex(signatureScheme); // #pqc-tls #injection
         return (short)((signatureScheme >>> 8) & 0xFF);
     }
 

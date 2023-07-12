@@ -63,8 +63,7 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import org.bouncycastle.crypto.params.X448PublicKeyParameters;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
-import org.bouncycastle.tls.InjectedKEMs;
-import org.bouncycastle.tls.InjectedSigAlgorithms;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 
 /**

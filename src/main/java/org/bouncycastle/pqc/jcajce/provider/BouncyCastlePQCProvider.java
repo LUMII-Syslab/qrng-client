@@ -17,7 +17,7 @@ import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
 import org.bouncycastle.jcajce.provider.config.ProviderConfiguration;
 import org.bouncycastle.jcajce.provider.util.AlgorithmProvider;
 import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
-import org.bouncycastle.tls.InjectedSigAlgorithms;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 
 public class BouncyCastlePQCProvider
     extends Provider

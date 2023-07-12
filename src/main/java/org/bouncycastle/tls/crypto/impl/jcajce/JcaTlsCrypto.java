@@ -52,6 +52,8 @@ import org.bouncycastle.tls.crypto.impl.TlsNullCipher;
 import org.bouncycastle.tls.crypto.impl.jcajce.srp.SRP6Client;
 import org.bouncycastle.tls.crypto.impl.jcajce.srp.SRP6Server;
 import org.bouncycastle.tls.crypto.impl.jcajce.srp.SRP6VerifierGenerator;
+import org.bouncycastle.tls.injection.kems.InjectedKEMs;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
 

@@ -1,11 +1,11 @@
 package org.bouncycastle.tls;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
 
 import org.bouncycastle.tls.crypto.TlsCrypto;
+import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.bouncycastle.util.Integers;
 
 /**
@@ -145,8 +145,14 @@ public abstract class AbstractTlsClient
 
         // #pqc-tls #injection
         // Adding injected KEMs:
-        for (int kem : InjectedKEMs.getInjectedKEMsCodePoints())
-            supportedGroups.add(kem);
+        if (InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.BEFORE_DEFAULT ||
+            InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT) {
+            for (int kem : InjectedKEMs.getInjectedKEMsCodePoints())
+                supportedGroups.add(kem);
+
+            if (InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT)
+                return supportedGroups;
+        }
 
         if (namedGroupRoles.contains(Integers.valueOf(NamedGroupRole.ecdh)))
         {
@@ -165,6 +171,13 @@ public abstract class AbstractTlsClient
         {
             TlsUtils.addIfSupported(supportedGroups, crypto,
                 new int[]{ NamedGroup.ffdhe2048, NamedGroup.ffdhe3072, NamedGroup.ffdhe4096 });
+        }
+
+        // #pqc-tls #injection
+        // Adding injected KEMs:
+        if (InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.AFTER_DEFAULT) {
+            for (int kem : InjectedKEMs.getInjectedKEMsCodePoints())
+                supportedGroups.add(kem);
         }
 
         return supportedGroups;
@@ -392,17 +405,23 @@ public abstract class AbstractTlsClient
          * preferred groups.
          */
 
+        // #pqc-tls #injection
+        // Adding the first injected KEM (if there exists one):
+        if (InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.BEFORE_DEFAULT ||
+                InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT ||
+                (InjectedKEMs.injectionOrder == InjectedKEMs.InjectionOrder.AFTER_DEFAULT && (null==supportedGroups || supportedGroups.isEmpty()))
+        ) {
+            for (int kem : InjectedKEMs.getInjectedKEMsCodePoints()) {
+                return TlsUtils.vectorOfOne(Integers.valueOf(kem));
+                // ^^^ returns the first KEM code point (if any)
+            }
+        }
+
         if (null == supportedGroups || supportedGroups.isEmpty())
         {
             return null;
         }
 
-        // #pqc-tls #injection
-        // Adding the first injected KEM (if there exists one):
-        for (int kem : InjectedKEMs.getInjectedKEMsCodePoints()) {
-            return TlsUtils.vectorOfOne(Integers.valueOf(kem));
-                // ^^^ returns the first KEM code point (if any)
-        }
 
         if (supportedGroups.contains(Integers.valueOf(NamedGroup.x25519)))
         {

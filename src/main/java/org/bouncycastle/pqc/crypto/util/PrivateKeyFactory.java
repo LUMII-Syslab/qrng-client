@@ -68,12 +68,10 @@ import org.bouncycastle.pqc.crypto.xmss.XMSSPrivateKeyParameters;
 import org.bouncycastle.pqc.crypto.xmss.XMSSUtil;
 import org.bouncycastle.pqc.legacy.crypto.mceliece.McElieceCCA2PrivateKeyParameters;
 import org.bouncycastle.pqc.legacy.crypto.qtesla.QTESLAPrivateKeyParameters;
-import org.bouncycastle.tls.InjectedKEMs;
-import org.bouncycastle.tls.InjectedSigAlgorithms;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
 import org.bouncycastle.util.Pack;
-import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Factory for creating private key objects from PKCS8 PrivateKeyInfo objects.

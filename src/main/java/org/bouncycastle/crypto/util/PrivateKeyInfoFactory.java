@@ -41,8 +41,7 @@ import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.X448PrivateKeyParameters;
 import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.math.ec.FixedPointCombMultiplier;
-import org.bouncycastle.tls.InjectedKEMs;
-import org.bouncycastle.tls.InjectedSigAlgorithms;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 
 /**
  * Factory to create ASN.1 private key info objects from lightweight private keys.

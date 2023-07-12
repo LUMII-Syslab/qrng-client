@@ -1,5 +1,7 @@
 package org.bouncycastle.tls;
 
+import org.bouncycastle.tls.injection.kems.InjectedKEMs;
+
 /**
  * RFC 7919
  */

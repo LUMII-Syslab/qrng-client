@@ -5,7 +5,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 
-import org.bouncycastle.pqc.InjectablePQC;
+import lv.lumii.pqc.InjectablePQC;
+import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.graalvm.word.WordFactory;
 import org.slf4j.*;
 
@@ -38,13 +39,13 @@ public class QrngClient {
     static {
 
         try {
-             NULL_BUFFER = WordFactory.nullPointer(); // user from GraalVM native image
+             NULL_BUFFER = WordFactory.nullPointer(); // used from GraalVM native image
         }
         catch (Exception e) {
             NULL_BUFFER = null; // used from Java mode of GraalVM
         }
 
-        InjectablePQC.inject();
+        InjectablePQC.inject(InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT);
 
         /*
         do not use log4j2 in native executables/libraries!!!
@@ -120,10 +121,13 @@ public class QrngClient {
         qrngServer.ensureReplenishing(0);
 
         try {
+            System.out.println("1");
             byte[] bytes = clientBuffer.consume(count);
+            System.out.println("2");
             if (targetBuffer==NULL_BUFFER) {
                 // converting bytes to Java stream:
                 var buffer = ByteBuffer.wrap(bytes);
+                System.out.println("3");
                 var bytesStr = Stream.generate(() -> buffer.get()).
                         limit(buffer.capacity()).
                         map(b -> Byte.toString(b)).

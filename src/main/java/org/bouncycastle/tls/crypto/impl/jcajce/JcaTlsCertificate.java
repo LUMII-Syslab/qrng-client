@@ -34,6 +34,7 @@ import org.bouncycastle.tls.crypto.TlsEncryptor;
 import org.bouncycastle.tls.crypto.TlsVerifier;
 import org.bouncycastle.tls.crypto.impl.LegacyTls13Verifier;
 import org.bouncycastle.tls.crypto.impl.RSAUtil;
+import org.bouncycastle.tls.injection.sigalgs.InjectedSigVerifiers;
 
 /**
  * Implementation class for a single X.509 certificate based on the JCA.

@@ -42,7 +42,19 @@ final class ImportX509KeyManager_5
     @Override
     public String chooseEngineServerAlias(String keyType, Principal[] issuers, SSLEngine engine)
     {
-        return x509KeyManager.chooseEngineServerAlias(keyType, issuers, engine);
+        // Change by SK (Sergejs Kozlovics): Elliptic curve keyType-s can have the curve after "/", e.g., "EC/secp256r1".
+        // If we are unable to find the alias for the exact keyType, try to find the alias for
+        // the more generic keyType without the curve, e.g., "EC".
+
+        String result = x509KeyManager.chooseEngineServerAlias(keyType, issuers, engine);
+        if (result == null) {
+            int i = keyType.indexOf('/');
+            if (i>=0) { // remove the curve name after "/"
+                result = x509KeyManager.chooseEngineServerAlias(keyType.substring(0, i), issuers, engine);
+            }
+        }
+
+        return result;
     }
 
     public String chooseServerAlias(String keyType, Principal[] issuers, Socket socket)

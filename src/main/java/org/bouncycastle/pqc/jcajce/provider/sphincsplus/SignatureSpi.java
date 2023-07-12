@@ -108,7 +108,8 @@ public class SignatureSpi
         byte[] hash = new byte[digest.getDigestSize()];
         digest.doFinal(hash, 0);
 
-        return signer.verifySignature(hash, sigBytes);
+        boolean result = signer.verifySignature(hash, sigBytes);
+        return result;
     }
 
     protected void engineSetParameter(AlgorithmParameterSpec params)
@@ -138,7 +139,7 @@ public class SignatureSpi
     {
         public Direct()
         {
-            super(new NullDigest(), new SPHINCSPlusSigner());
+            super(new NullDigest(),new SPHINCSPlusSigner());// new InjectablePQC.InjectableSphincsPlusTlsSigner());// new SPHINCSPlusSigner());
         }
     }
 }

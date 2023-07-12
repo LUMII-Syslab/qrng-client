@@ -135,6 +135,7 @@ public class QrngServer {
             logger.error("Web socket connection error", e);
             return;
         }
+        System.out.println(" isClosed="+isClosed);
 
         if (isClosed) {
             reconnectService.shutdownNow();

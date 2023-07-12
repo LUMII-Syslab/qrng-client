@@ -6,6 +6,7 @@ import org.cactoos.scalar.Unchecked;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 
 public class ClientBuffer {
 
@@ -66,35 +67,46 @@ public class ClientBuffer {
 
         int remainingLength = requiredLength;
         int emptyTrials = 0;
+        System.out.println("1a");
+
         ByteBuffer consumed = ByteBuffer.allocate(remainingLength);
 
         while (remainingLength > 0) {
             synchronized (this) {
+                System.out.println("1b");
                 if (this.length==0)
                     emptyTrials++;
                 else
                     emptyTrials=0;
 
+                System.out.println("1c");
                 // fill what we can (while nobody interferes with us):
                 while (this.length>0 && remainingLength>0) {
+                    System.out.println("1d");
                     consumed.put(this.buffer.value()[this.first]);
                     this.first++;
                     this.length--;
                     remainingLength--;
                 }
             }
-            if (emptyTrials>=MAX_EMPTY_TRIALS)
-                throw new InterruptedException("The client buffer has not been replenished for too long");
+            if (emptyTrials>=MAX_EMPTY_TRIALS) {
+                System.out.println("1e");
+                throw new InterruptedException("The client buffer has not been replenished for too long. Check the log file for possible connection issues.");
+            }
             if (remainingLength > 0) {
+                System.out.println("1f "+Thread.class);
                 // After filling what we could, there are still some more bytes required.
                 // Waiting 1 seconds to wait for the buffer to be replenished...
                 Thread.sleep(1000);
+                System.out.println("1ff");
             }
         }
 
+        System.out.println("1g");
         logger.info("Consumed "+requiredLength+" random bytes from the buffer.");
 
         consumed.rewind();
+        System.out.println("1h");
         return consumed.array();
     }
 
