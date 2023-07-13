@@ -42,7 +42,7 @@ public class KeyEncapsulation {
     /**
      * Keep native pointer for Java to remember which C memory it is managing.
      */
-    private long native_kem_handle_;
+    public long native_kem_handle_ = 0; // by SK
 
     private byte[] public_key_;
     private byte[] secret_key_;

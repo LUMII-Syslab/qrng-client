@@ -1,5 +1,36 @@
 [
     {
+      "name" : "org.openquantumsafe.KeyEncapsulation",
+      "queryAllDeclaredConstructors" : true,
+      "queryAllPublicConstructors" : true,
+      "queryAllDeclaredMethods" : true,
+      "queryAllPublicMethods" : true,
+      "allDeclaredClasses" : true,
+      "allPublicClasses" : true,
+      "allDeclaredConstructors" : true,
+      "allPublicConstructors": true,
+      "allDeclaredMethods": true,
+      "allPublicMethods": true,
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "name" : "org.openquantumsafe.KeyEncapsulation$KeyEncapsulationDetails",
+      "queryAllDeclaredConstructors" : true,
+      "queryAllPublicConstructors" : true,
+      "queryAllDeclaredMethods" : true,
+      "queryAllPublicMethods" : true,
+      "allDeclaredClasses" : true,
+      "allPublicClasses" : true,
+      "allDeclaredConstructors" : true,
+      "allPublicConstructors": true,
+      "allDeclaredMethods": true,
+      "allPublicMethods": true,
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+
+    {
       "name" : "org.openquantumsafe.Signature",
       "queryAllDeclaredConstructors" : true,
       "queryAllPublicConstructors" : true,
