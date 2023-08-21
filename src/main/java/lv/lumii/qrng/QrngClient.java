@@ -10,9 +10,6 @@ import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.graalvm.word.WordFactory;
 import org.slf4j.*;
 
-import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -108,9 +105,16 @@ public class QrngClient {
 
 
     @CEntryPoint(name = "qrng_connect")
-    public static synchronized void qrng_connect(IsolateThread thread) {
-        logger.debug("java.library.path="+System.getProperty("java.library.path"));
-        qrngServer.ensureReplenishing(0);
+    public static synchronized CCharPointer qrng_connect(IsolateThread thread) {
+        try {
+            logger.debug("java.library.path=" + System.getProperty("java.library.path"));
+            qrngServer.ensureReplenishing(0);
+            return NULL_BUFFER;
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+            return toCCharPointer("{\"error\":\"Could not connect to the QRNG server: "+e.getMessage()+"\"}");
+        }
     }
 
     @CEntryPoint(name = "qrng_get_random_bytes")

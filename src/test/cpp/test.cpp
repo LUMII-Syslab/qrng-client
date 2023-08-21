@@ -17,9 +17,15 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  qrng_connect(thread);
-  
-  char* s = qrng_get_main_executable(thread);
+  fprintf(stderr, "We are going to connect to the QRNG server...\n");
+
+  char *s = qrng_connect(thread);
+  printf("qrng_connect returned error [%s]\n", s);
+  qrng_free_result(thread, s);
+  if (s!=NULL)
+    return 1;
+
+  s = qrng_get_main_executable(thread);
   printf("qrng_get_main_executable returned [%s]\n", s);
   qrng_free_result(thread, s);
 
