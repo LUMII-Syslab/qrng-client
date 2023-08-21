@@ -112,7 +112,6 @@ public class QrngClient {
             return NULL_BUFFER;
         }
         catch(Exception e) {
-            e.printStackTrace();
             return toCCharPointer("{\"error\":\"Could not connect to the QRNG server: "+e.getMessage()+"\"}");
         }
     }
