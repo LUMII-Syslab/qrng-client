@@ -9,6 +9,7 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.SecretWithEncapsulation;
 import org.bouncycastle.crypto.digests.NullDigest;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.pqc.crypto.frodo.*;
@@ -307,21 +308,20 @@ public class InjectablePQC {
 
             byte[] pk = skParams.getPublicKey();
             System.out.println("genS5 "+message.length+" "+sk.length);
-            byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
+            //byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
             System.out.println("genS6");
             byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
             System.out.printf("SECRET KEY:\n%s\n", InjectablePQC.byteArrayToString(sk));
 
-            //System.out.printf("OQS SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature));
-            System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
-                    InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
-                    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
-            //System.out.printf("BC SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(bcSignature));
-            System.out.printf("BC SIGNATURE VERIFY: oqs:%b bc:%b\n",
-                    InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
+            //System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
+              //      InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
+                //    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
+
+            System.out.printf("BC SIGNATURE VERIFY: oqs bc%b\n",
+                    //InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
                     InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
 
-            return oqsSignature;
+            return bcSignature;
         }
 
 
@@ -334,7 +334,8 @@ public class InjectablePQC {
             // 4 bytes big endian - params ID
             pk = Arrays.copyOfRange(pk, 4, pk.length);
 
-            boolean result = InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, signature, pk);
+            //boolean result = InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, signature, pk);
+            boolean result = InjectableSphincsPlusTlsSigner.verifySignature_bc(message, signature, pk);
             return result;
         }
 
@@ -369,74 +370,40 @@ public class InjectablePQC {
     }
 
     public static class InjectableFrodoKEMAgreement extends KEMAgreementBase {
-        private org.openquantumsafe.KeyEncapsulation kem; //- if via liboqs + JNI + DLL
+        //private org.openquantumsafe.KeyEncapsulation kem;
+        // ^^^ if via liboqs + JNI + DLL
         FrodoKeyPairGenerator kemGen; // - if via BC
 
         public InjectableFrodoKEMAgreement(JcaTlsCrypto crypto, String kemName, boolean isServer) {
             super(crypto, isServer);
-            this.kem = new org.openquantumsafe.KeyEncapsulation(kemName); //- if via liboqs + JNI + DLL
+            //this.kem = new org.openquantumsafe.KeyEncapsulation(kemName);
+            // ^^^ if via liboqs + JNI + DLL
 
             this.kemGen = new FrodoKeyPairGenerator();
-            //this.kemGen.init(new FrodoKeyGenerationParameters(new SecureRandom(), FrodoParameters.frodokem640shake));
             this.kemGen.init(new FrodoKeyGenerationParameters(new SecureRandom(), FrodoParameters.frodokem640aes));
         }
 
 
-
-
-            // if pure Java (BouncyCastle):
-/*            FrodoPrivateKeyParameters priv = new FrodoPrivateKeyParameters(FrodoParameters.frodokem640shake, this.clientPrivateKey);
-            FrodoKEMExtractor ext = new FrodoKEMExtractor(priv);
-
-            byte[] otherSecret = ext.extractSecret(this.serverEnsapsulated);
-
-
-            // bitwise XOR of mySecred and otherSecret
-            BitSet bsa = BitSet.valueOf(mySecret);
-            BitSet bsb = BitSet.valueOf(otherSecret);
-
-            bsa.xor(bsb);
-            //write bsa to byte-Array c
-            byte[] sharedSecret = bsa.toByteArray();
-
-            System.out.println(" otherSecret="+byteArrayToString(otherSecret));
-            //System.out.println(" otherEncapsulation="+byteArrayToString(this.serverEnsapsulated));
-            return new JceTlsSecret(this.crypto, sharedSecret);
-*/
 
         @Override
         public Pair<byte[], byte[]> keyGen() {
             System.out.println(this+" KEM: KeyGen "+this.isServer());
 
             // if via liboqs JNI + DLL:
-            byte[] myPublicKey = kem.generate_keypair().clone();
-            byte[] myPrivateKey = kem.export_secret_key().clone();
+            //byte[] myPublicKey = kem.generate_keypair().clone();
+            //byte[] myPrivateKey = kem.export_secret_key().clone();
 
 
 
             // if pure Java (BouncyCastle):
-            /*AsymmetricCipherKeyPair kp = kemGen.generateKeyPair();
+            AsymmetricCipherKeyPair kp = kemGen.generateKeyPair();
             FrodoPublicKeyParameters pubParams = (FrodoPublicKeyParameters) (kp.getPublic());
             FrodoPrivateKeyParameters privParams = (FrodoPrivateKeyParameters) (kp.getPrivate());
             //variant: byte[] encoded = pubParams.getEncoded();
             //variant: byte[] encoded2 = pubParams.getPublicKey();
-            this.clientPublicKey = pubParams.publicKey.clone();
-            this.clientPrivateKey = privParams.getPrivateKey().clone();
+            byte[] myPublicKey = pubParams.getPublicKey().clone();//publicKey.clone();
+            byte[] myPrivateKey = privParams.getPrivateKey().clone();
 
-            FrodoKEMGenerator gen = new FrodoKEMGenerator(this.crypto.getSecureRandom());
-
-            SecretWithEncapsulation secEnc = gen.generateEncapsulated(pubParams);
-            this.mySecret = secEnc.getSecret();
-            byte[] encapsulation = secEnc.getEncapsulation();*/
-
-
-            /*System.out.println(" mySecret="+byteArrayToString(mySecret));
-            //System.out.println(" myEncapsulation="+byteArrayToString(encapsulation));
-
-            byte[] mySecret2 = kem.decap_secret(encapsulation);
-            System.out.println(" mySecret2="+byteArrayToString(mySecret2));
-
-            return encapsulation;*/
             if (this.isServer()) {
                 return new Pair<>(new byte[]{}, new byte[]{}); // not needed by the server
             }
@@ -448,11 +415,21 @@ public class InjectablePQC {
         @Override
         public Pair<byte[], byte[]> encapsulate(byte[] partnerPublicKey) {
             if (this.isServer()) {
-                Pair<byte[], byte[]> pair = kem.encap_secret(partnerPublicKey);
-                byte[] ciphertext = pair.getLeft();
-                byte[] semiSecret = pair.getRight();
-                System.out.println("SERVER SHARED SECRET: "+byteArrayToString(semiSecret));
-                return new Pair<>(semiSecret, ciphertext);
+                // if via liboqs JNI + DLL:
+                //Pair<byte[], byte[]> pair = kem.encap_secret(partnerPublicKey);
+                //byte[] ciphertext = pair.getLeft();
+                //byte[] semiSecret = pair.getRight();
+                //return new Pair<>(semiSecret, ciphertext);
+
+
+                FrodoKEMGenerator gen = new FrodoKEMGenerator(new SecureRandom());
+                FrodoPublicKeyParameters pub = new FrodoPublicKeyParameters(FrodoParameters.frodokem640aes, partnerPublicKey);
+
+                SecretWithEncapsulation secretWithEncapsulation = gen.generateEncapsulated(pub);
+
+                //this.mySecret = secretWithEncapsulation.getSecret(); -- will be assigned automatically
+
+                return new Pair<>(secretWithEncapsulation.getSecret(), secretWithEncapsulation.getEncapsulation());
             }
             else { // client
                 return new Pair<>(new byte[]{}, new byte[]{});
@@ -461,19 +438,25 @@ public class InjectablePQC {
 
         @Override
         public byte[] decapsulate(byte[] secretKey, byte[] ciphertext) {
-            System.out.println(this+"KEM: Decapsulate");
+            System.out.println(this+"KEM: Decapsulate "+byteArrayToString(Arrays.copyOfRange(ciphertext,0, 20)));
             byte[] sharedSecret;
             if (this.isServer()) {
                 sharedSecret = this.mySecret;
             }
             else {
                 // assert: this.secretKey == secretKey
-                sharedSecret = kem.decap_secret(ciphertext);
+                // if via libqs JNI + DLL:
+                //sharedSecret = kem.decap_secret(ciphertext);
+
+                // if BC:
+                FrodoPrivateKeyParameters priv = new FrodoPrivateKeyParameters(FrodoParameters.frodokem640aes, secretKey);
+                FrodoKEMExtractor ext = new FrodoKEMExtractor(priv);
+                sharedSecret = ext.extractSecret(ciphertext);
             }
-            System.out.println(this+" SHARED SECRET: "+byteArrayToString(sharedSecret));
 
             // if via liboqs JNI + DLL:
-            this.kem.dispose_KEM();
+            // this.kem.dispose_KEM();
+
             return sharedSecret;
         }
     }
@@ -503,6 +486,25 @@ public class InjectablePQC {
     }
 
     public static void main(String args[]) {
+
+
+        InjectableFrodoKEMAgreement f1 = new InjectableFrodoKEMAgreement(null, "FrodoKEM-640-AES", false);
+        InjectableFrodoKEMAgreement f2 = new InjectableFrodoKEMAgreement(null, "FrodoKEM-640-AES", true);
+        Pair<byte[],byte[]> p = f1.keyGen();
+
+        Pair<byte[], byte[]> secEnc = f2.encapsulate(p.getLeft()); // p.getLeft === public key;
+
+        System.out.println("SERVER SECRET="+byteArrayToString(secEnc.getLeft()));
+        System.out.println("SERVER ENC="+byteArrayToString(Arrays.copyOfRange(secEnc.getRight(), 0, 20))+"...");
+
+        byte[] clientSecret = f1.decapsulate(p.getRight(), secEnc.getRight());
+        System.out.println("CLIENT SECRET="+byteArrayToString(clientSecret));
+
+
+        int x=5;
+        if (x<6)
+            return;
+
         // if via liboqs JNI + DLL:
 
         KeyEncapsulation kem1 = new org.openquantumsafe.KeyEncapsulation("FrodoKEM-640-SHAKE");
