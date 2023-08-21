@@ -263,13 +263,10 @@ public class InjectablePQC {
         }
 
         public static byte[] generateSignature_oqs(byte[] message, byte[] sk) {
-            System.out.println("osq1 signame="+OQS_SIG_NAME);
             org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
                     OQS_SIG_NAME,
                     sk);
-            System.out.println("osq2");
             byte[] oqsSignature = oqsSigner.sign(message);
-            System.out.println("osq3");
             return oqsSignature;
         }
 
@@ -297,29 +294,22 @@ public class InjectablePQC {
 
         @Override
         public byte[] generateSignature(byte[] message) {
-            System.out.println("genS1");
             // override with oqs implementation
             byte[] sk = skParams.getEncoded();
-            System.out.println("genS2");
             int sphincsPlusParams = Pack.bigEndianToInt(sk, 0);
-            System.out.println("genS3");
             sk = Arrays.copyOfRange(sk, 4, sk.length);
-            System.out.println("genS4");
 
             byte[] pk = skParams.getPublicKey();
-            System.out.println("genS5 "+message.length+" "+sk.length);
             //byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
-            System.out.println("genS6");
             byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
-            System.out.printf("SECRET KEY:\n%s\n", InjectablePQC.byteArrayToString(sk));
 
             //System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
               //      InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
                 //    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
 
-            System.out.printf("BC SIGNATURE VERIFY: oqs bc%b\n",
+            //System.out.printf("BC SIGNATURE VERIFY: oqs bc%b\n",
                     //InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
-                    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
+            //        InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
 
             return bcSignature;
         }
@@ -355,15 +345,8 @@ public class InjectablePQC {
 
             @Override
             public byte[] getSignature() throws IOException {
-                //return InjectableSphincsPlusTlsSigner.this.generateRawSignature(algorithm, os.toByteArray());
-
-                System.out.println("os1 "+os);
-                byte[] data = os.toByteArray();//Arrays.copyOfRange(os.toByteArray(), 0, os.size());
-                System.out.println("os2 "+data);
-                byte[] sk = skParams.getEncoded();
-                System.out.println("os3 ");
+                byte[] data = os.toByteArray();
                 byte[] signature = InjectableSphincsPlusTlsSigner.this.generateSignature(data);
-                System.out.println("os4 ");
                 return signature;
             }
         }
@@ -387,7 +370,6 @@ public class InjectablePQC {
 
         @Override
         public Pair<byte[], byte[]> keyGen() {
-            System.out.println(this+" KEM: KeyGen "+this.isServer());
 
             // if via liboqs JNI + DLL:
             //byte[] myPublicKey = kem.generate_keypair().clone();
@@ -438,7 +420,6 @@ public class InjectablePQC {
 
         @Override
         public byte[] decapsulate(byte[] secretKey, byte[] ciphertext) {
-            System.out.println(this+"KEM: Decapsulate "+byteArrayToString(Arrays.copyOfRange(ciphertext,0, 20)));
             byte[] sharedSecret;
             if (this.isServer()) {
                 sharedSecret = this.mySecret;
@@ -487,6 +468,7 @@ public class InjectablePQC {
 
     public static void main(String args[]) {
 
+        /* if pure-Java BC:
 
         InjectableFrodoKEMAgreement f1 = new InjectableFrodoKEMAgreement(null, "FrodoKEM-640-AES", false);
         InjectableFrodoKEMAgreement f2 = new InjectableFrodoKEMAgreement(null, "FrodoKEM-640-AES", true);
@@ -499,11 +481,7 @@ public class InjectablePQC {
 
         byte[] clientSecret = f1.decapsulate(p.getRight(), secEnc.getRight());
         System.out.println("CLIENT SECRET="+byteArrayToString(clientSecret));
-
-
-        int x=5;
-        if (x<6)
-            return;
+        */
 
         // if via liboqs JNI + DLL:
 

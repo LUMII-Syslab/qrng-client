@@ -50,9 +50,7 @@ public class SPHINCSPlusKeyFactorySpi
         {
             // get the DER-encoded Key according to X.509 from the spec
             byte[] encKey = ((X509EncodedKeySpec)keySpec).getEncoded();
-            for (int i=0; i< encKey.length; i++)
-                System.out.printf("%02X ", encKey[i]>=0?encKey[i]:256+encKey[i]);
-            System.out.println();
+            
 /* ASN.1: SEQUENCE (2 elem)
   SEQUENCE (2 elem)
     OBJECT IDENTIFIER 1.3.9999.6.7.1

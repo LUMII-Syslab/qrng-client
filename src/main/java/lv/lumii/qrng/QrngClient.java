@@ -121,13 +121,10 @@ public class QrngClient {
         qrngServer.ensureReplenishing(0);
 
         try {
-            System.out.println("1");
             byte[] bytes = clientBuffer.consume(count);
-            System.out.println("2");
             if (targetBuffer==NULL_BUFFER) {
                 // converting bytes to Java stream:
                 var buffer = ByteBuffer.wrap(bytes);
-                System.out.println("3");
                 var bytesStr = Stream.generate(() -> buffer.get()).
                         limit(buffer.capacity()).
                         map(b -> Byte.toString(b)).

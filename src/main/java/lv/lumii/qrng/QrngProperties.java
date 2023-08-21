@@ -12,7 +12,6 @@ public class QrngProperties {
     private Unchecked<Properties> properties;
 
     public QrngProperties(String mainDirectory) {
-        System.out.println("MAIN "+mainDirectory);
         this.mainDirectory = mainDirectory;
         this.properties = new Unchecked<>(new Sticky<>(
                 () -> loadPropertiesFile(mainDirectory + File.separator + "qrng.properties")));

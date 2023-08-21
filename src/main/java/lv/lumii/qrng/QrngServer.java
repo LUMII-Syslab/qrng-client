@@ -33,7 +33,6 @@ public class QrngServer {
 
 
     public QrngServer(QrngProperties qrngProperties1, ClientBuffer clientBuffer) {
-        System.out.println(" New QrngServer");
         qrngProperties = qrngProperties1;
         this.clientBuffer = clientBuffer;
         this.wsclient = new Synced<>(new Sticky<>(() -> newConnection() ));
@@ -41,12 +40,7 @@ public class QrngServer {
     }
 
     private WebSocketClient newConnection() throws Exception {
-
-        System.out.println(" New connection ");
-
         QrngClientToken token = qrngProperties.clientToken();
-
-        System.out.println("TOKEN "+token.password()+" "+token.certificateChain());
 
         TrustManagerFactory trustMgrFact = TrustManagerFactory.getInstance("SunX509");
         trustMgrFact.init(qrngProperties.trustStore());
@@ -115,18 +109,13 @@ public class QrngServer {
 
         cln.setConnectionLostTimeout(20);
         cln.setSocketFactory(sslf2.getSslSocketFactory());
-        System.out.println(" Starting run...");
         new Thread(()->cln.run()).start();
         // ^^^ cln.run() is blocking => we launch it in a new thread
-        System.out.println(" run started");
 
         return cln;
     }
 
     public synchronized void ensureReplenishing(int afterSeconds) {
-
-
-        System.out.println(" ensureReplenishing started");
 
         boolean isClosed;
         try {
@@ -135,7 +124,6 @@ public class QrngServer {
             logger.error("Web socket connection error", e);
             return;
         }
-        System.out.println(" isClosed="+isClosed);
 
         if (isClosed) {
             reconnectService.shutdownNow();
