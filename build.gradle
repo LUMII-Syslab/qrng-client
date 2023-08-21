@@ -34,7 +34,7 @@ application {
 */
 plugins {
     id 'java-library'
-    id 'org.graalvm.buildtools.native' version '0.9.19'
+    id 'org.graalvm.buildtools.native' version '0.9.24'
 }
 
 repositories {
@@ -164,6 +164,9 @@ task testNative {
             }
         }
         exec {
+             workingDir project.buildDir.absolutePath+'/native/nativeCompile/'
+//             environment DYLD_LIBRARY_PATH: project.buildDir.absolutePath+'/native/nativeCompile/:'+project.buildDir.absolutePath+'../.libs:'+'$System.env.JAVA_HOME'+'/lib:'+'$System.env.JAVA_HOME'+'/lib/server'
+//             ^^^ needed, if liboqs is used for KEM and signatures; not needed, if pure-Java BouncyCastle KEM and signatures are used
              commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
         }
     }
@@ -185,6 +188,7 @@ graalvmNative {
             //buildArgs.add('--enable-url-protocols')
             buildArgs.add('-H:+AllowVMInspection')
             buildArgs.add('-H:EnableURLProtocols=http,https,ws,wss')
+            buildArgs.add('-H:+EnableSignalAPI')
             buildArgs.add('--configure-reflection-metadata')
             buildArgs.add('--enable-all-security-services')
             buildArgs.add('-H:ReflectionConfigurationFiles='+project.buildDir.absolutePath+'/../reflection.json')
