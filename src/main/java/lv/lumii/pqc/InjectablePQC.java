@@ -262,11 +262,13 @@ public class InjectablePQC {
         }
 
         public static byte[] generateSignature_oqs(byte[] message, byte[] sk) {
+            System.out.println("osq1 signame="+OQS_SIG_NAME);
             org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
                     OQS_SIG_NAME,
                     sk);
-
+            System.out.println("osq2");
             byte[] oqsSignature = oqsSigner.sign(message);
+            System.out.println("osq3");
             return oqsSignature;
         }
 
@@ -294,14 +296,19 @@ public class InjectablePQC {
 
         @Override
         public byte[] generateSignature(byte[] message) {
+            System.out.println("genS1");
             // override with oqs implementation
             byte[] sk = skParams.getEncoded();
+            System.out.println("genS2");
             int sphincsPlusParams = Pack.bigEndianToInt(sk, 0);
+            System.out.println("genS3");
             sk = Arrays.copyOfRange(sk, 4, sk.length);
-
+            System.out.println("genS4");
 
             byte[] pk = skParams.getPublicKey();
+            System.out.println("genS5 "+message.length+" "+sk.length);
             byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
+            System.out.println("genS6");
             byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
             System.out.printf("SECRET KEY:\n%s\n", InjectablePQC.byteArrayToString(sk));
 
@@ -349,10 +356,13 @@ public class InjectablePQC {
             public byte[] getSignature() throws IOException {
                 //return InjectableSphincsPlusTlsSigner.this.generateRawSignature(algorithm, os.toByteArray());
 
+                System.out.println("os1 "+os);
                 byte[] data = os.toByteArray();//Arrays.copyOfRange(os.toByteArray(), 0, os.size());
+                System.out.println("os2 "+data);
                 byte[] sk = skParams.getEncoded();
-
+                System.out.println("os3 ");
                 byte[] signature = InjectableSphincsPlusTlsSigner.this.generateSignature(data);
+                System.out.println("os4 ");
                 return signature;
             }
         }

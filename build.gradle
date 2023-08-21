@@ -178,9 +178,13 @@ graalvmNative {
             verbose = true // Add verbose output, defaults to false
             fallback = false // Sets the fallback mode of native-image, defaults to false
             sharedLibrary = true // Determines if image is a shared library, defaults to false if `java-library` plugin isn't included
+            buildArgs.add('--no-server')
             buildArgs.add('--enable-http')
             buildArgs.add('--enable-https')
+            buildArgs.add('-H:Optimize=0')
             //buildArgs.add('--enable-url-protocols')
+            buildArgs.add('-H:+AllowVMInspection')
+            buildArgs.add('-H:EnableURLProtocols=http,https,ws,wss')
             buildArgs.add('--configure-reflection-metadata')
             buildArgs.add('--enable-all-security-services')
             buildArgs.add('-H:ReflectionConfigurationFiles='+project.buildDir.absolutePath+'/../reflection.json')

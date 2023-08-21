@@ -642,7 +642,12 @@ class ProvSSLSocketDirect
             if (len > 0)
             {
                 handshakeIfNecessary(true);
-                protocol.writeApplicationData(b, off, len);
+                try {
+                    protocol.writeApplicationData(b, off, len);
+                }
+                catch(Throwable t) {
+                    t.printStackTrace();
+                }
             }
         }
 

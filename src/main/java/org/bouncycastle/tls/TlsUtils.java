@@ -2432,24 +2432,37 @@ public class TlsUtils
         String contextString, TlsHandshakeHash handshakeHash, SignatureAndHashAlgorithm signatureAndHashAlgorithm)
             throws IOException
     {
+        System.out.println("cert1");
         TlsStreamSigner streamSigner = credentialedSigner.getStreamSigner();
+        System.out.println("cert2");
 
         byte[] header = getCertificateVerifyHeader(contextString);
         byte[] prfHash = getCurrentPRFHash(handshakeHash);
 
         if (null != streamSigner)
         {
+            System.out.println("cert3");
+            System.out.println("cert3b "+streamSigner);
             OutputStream output = streamSigner.getOutputStream();
+            System.out.println("cert3c "+output);
             output.write(header, 0, header.length);
+            System.out.println("cert3d");
             output.write(prfHash, 0, prfHash.length);
-            return streamSigner.getSignature();
+            System.out.println("cert3e");
+            byte[] retVal = streamSigner.getSignature();
+            System.out.println("cert3f");
+            return retVal;
         }
 
         TlsHash tlsHash = createHash(crypto, signatureAndHashAlgorithm);
         tlsHash.update(header, 0, header.length);
         tlsHash.update(prfHash, 0, prfHash.length);
+        System.out.println("cert4");
         byte[] hash = tlsHash.calculateHash();
-        return credentialedSigner.generateRawSignature(hash);
+        System.out.println("cert5");
+        byte[] retVal = credentialedSigner.generateRawSignature(hash);
+        System.out.println("cert6");
+        return retVal;
     }
 
     static void verifyCertificateVerifyClient(TlsServerContext serverContext, CertificateRequest certificateRequest,

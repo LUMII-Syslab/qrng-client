@@ -192,10 +192,13 @@ public class Signature {
         }
         byte[] signature = new byte[(int) alg_details_.max_length_signature];
         Mutable<Long> signature_len_ret = new Mutable<>();
+        System.out.println("sign1");
         int rv_= sign(signature, signature_len_ret,
                         message, message.length, this.secret_key_);
+        System.out.println("sign2");
         long actual_signature_len = signature_len_ret.value;
         byte[] actual_signature = new byte[(int) actual_signature_len];
+        System.out.println("sign3");
         System.arraycopy(signature, 0,
                             actual_signature, 0, (int) actual_signature_len);
         if (rv_ != 0) throw new RuntimeException("Cannot sign message");

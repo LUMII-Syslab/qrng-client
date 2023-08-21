@@ -46,6 +46,36 @@
       "allPublicFields": true
     },
     {
+      "name" : "org.openquantumsafe.Signature$Mutable",
+      "queryAllDeclaredConstructors" : true,
+      "queryAllPublicConstructors" : true,
+      "queryAllDeclaredMethods" : true,
+      "queryAllPublicMethods" : true,
+      "allDeclaredClasses" : true,
+      "allPublicClasses" : true,
+      "allDeclaredConstructors" : true,
+      "allPublicConstructors": true,
+      "allDeclaredMethods": true,
+      "allPublicMethods": true,
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "name" : "java.lang.Long",
+      "queryAllDeclaredConstructors" : true,
+      "queryAllPublicConstructors" : true,
+      "queryAllDeclaredMethods" : true,
+      "queryAllPublicMethods" : true,
+      "allDeclaredClasses" : true,
+      "allPublicClasses" : true,
+      "allDeclaredConstructors" : true,
+      "allPublicConstructors": true,
+      "allDeclaredMethods": true,
+      "allPublicMethods": true,
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
       "name" : "org.openquantumsafe.Signature$SignatureDetails",
       "queryAllDeclaredConstructors" : true,
       "queryAllPublicConstructors" : true,

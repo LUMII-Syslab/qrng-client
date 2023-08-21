@@ -211,19 +211,23 @@ class RecordStream
     boolean readRecord()
         throws IOException
     {
+        System.out.println("r1");
         if (!inputRecord.readHeader(input))
         {
             return false;
         }
 
+        System.out.println("r2");
         short recordType = checkRecordType(inputRecord.buf, RecordFormat.TYPE_OFFSET);
 
+        System.out.println("r3");
         ProtocolVersion recordVersion = TlsUtils.readVersion(inputRecord.buf, RecordFormat.VERSION_OFFSET);
 
         int length = TlsUtils.readUint16(inputRecord.buf, RecordFormat.LENGTH_OFFSET);
 
         checkLength(length, ciphertextLimit, AlertDescription.record_overflow);
 
+        System.out.println("r4");
         inputRecord.readFragment(input, length);
 
         TlsDecodeResult decoded;
@@ -235,14 +239,18 @@ class RecordStream
                 return true;
             }
 
+            System.out.println("r5");
             decoded = decodeAndVerify(recordType, recordVersion, inputRecord.buf, RecordFormat.FRAGMENT_OFFSET, length);
+            System.out.println("r6");
         }
         finally
         {
             inputRecord.reset();
+            System.out.println("r7");
         }
 
         handler.processRecord(decoded.contentType, decoded.buf, decoded.off, decoded.len);
+        System.out.println("r8");
         return true;
     }
 

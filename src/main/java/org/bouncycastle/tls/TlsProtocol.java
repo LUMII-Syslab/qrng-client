@@ -409,6 +409,8 @@ public abstract class TlsProtocol
         }
     }
 
+    private static int k =0;
+
     protected void blockForHandshake() throws IOException
     {
         while (this.connection_state != CS_END)
@@ -419,7 +421,18 @@ public abstract class TlsProtocol
                 throw new TlsFatalAlert(AlertDescription.internal_error);
             }
 
-            safeReadRecord();
+            try {
+                k++;
+                System.out.println("SAFEREAD1"+((k==9)?"GOAL":""));
+                if (k==9) {
+                    k+=0;
+                }
+                safeReadRecord();
+                System.out.println("SAFEREAD2");
+            }
+            catch (Throwable t) {
+                t.printStackTrace();
+            }
         }
     }
 
@@ -576,19 +589,28 @@ public abstract class TlsProtocol
         }
         case ContentType.handshake:
         {
+            System.out.println("t1");
             if (handshakeQueue.available() > 0)
             {
+                System.out.println("t2");
                 handshakeQueue.addData(buf, off, len);
+                System.out.println("t3");
                 processHandshakeQueue(handshakeQueue);
+                System.out.println("t4");
             }
             else
             {
+                System.out.println("t5");
                 ByteQueue tmpQueue = new ByteQueue(buf, off, len);
+                System.out.println("t5a");
                 processHandshakeQueue(tmpQueue);
+                System.out.println("t5b");
                 int remaining = tmpQueue.available();
+                System.out.println("t6 "+remaining);
                 if (remaining > 0)
                 {
                     handshakeQueue.addData(buf, off + len - remaining, remaining);
+                    System.out.println("t7");
                 }
             }
             break;
@@ -907,6 +929,10 @@ public abstract class TlsProtocol
         {
             handleException(AlertDescription.internal_error, "Failed to read record", e);
             throw new TlsFatalAlert(AlertDescription.internal_error, e);
+        }
+        catch (Exception e) {
+            System.out.println("Exc");
+            e.printStackTrace();
         }
 
         handleFailure();

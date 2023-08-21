@@ -251,29 +251,37 @@ public class TlsClientProtocol
 
                 if (null != certificateRequest)
                 {
+                    System.out.println("clientcert1");
                     TlsCredentialedSigner clientCredentials = TlsUtils.establish13ClientCredentials(authentication,
                         certificateRequest);
 
+                    System.out.println("clientcert2");
                     Certificate clientCertificate = null;
                     if (null != clientCredentials)
                     {
                         clientCertificate = clientCredentials.getCertificate();
                     }
 
+                    System.out.println("clientcert3 "+clientCertificate);
                     if (null == clientCertificate)
                     {
                         // In this calling context, certificate_request_context is length 0
                         clientCertificate = Certificate.EMPTY_CHAIN_TLS13;
                     }
 
+                    System.out.println("clientcert4");
                     send13CertificateMessage(clientCertificate);
                     this.connection_state = CS_CLIENT_CERTIFICATE;
 
+                    System.out.println("clientcert5");
                     if (null != clientCredentials)
                     {
+                        System.out.println("clientcert6");
                         DigitallySigned certificateVerify = TlsUtils.generate13CertificateVerify(tlsClientContext,
                             clientCredentials, handshakeHash);
+                        System.out.println("clientcert7");
                         send13CertificateVerifyMessage(certificateVerify);
+                        System.out.println("clientcert8");
                         this.connection_state = CS_CLIENT_CERTIFICATE_VERIFY;
                     }
                 }
