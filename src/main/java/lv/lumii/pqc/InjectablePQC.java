@@ -210,8 +210,10 @@ public class InjectablePQC {
                     return b;
                 });
 
+        //InjectedKEMs.injectKEM(oqs_frodo640aes_codepoint, "FrodoKEM-640-AES",
+          //      (crypto, isServer) -> new KemAgreement(crypto, isServer, new InjectableFrodoKEM()));
         InjectedKEMs.injectKEM(oqs_frodo640aes_codepoint, "FrodoKEM-640-AES",
-                (crypto, kemCodePoint, isServer) -> new KemAgreement(crypto, isServer, new InjectableFrodoKEM()));
+                ()->new InjectableFrodoKEM());
 
         BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
         Security.insertProviderAt(jsseProvider, 1);

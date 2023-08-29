@@ -1,5 +1,6 @@
 package org.bouncycastle.tls.injection.kems;
 
+import lv.lumii.pqc.InjectablePQC;
 import org.bouncycastle.tls.crypto.TlsAgreement;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 
@@ -27,8 +28,12 @@ public class InjectedKEMs
     }
     public static InjectionOrder injectionOrder = InjectionOrder.AFTER_DEFAULT;
 
+    public interface KemFunction {
+        KEM invoke();
+    }
+
     public interface TlsAgreementFunction {
-        TlsAgreement invoke(JcaTlsCrypto crypto, int kemCodePoint, boolean isServer);
+        TlsAgreement invoke(JcaTlsCrypto crypto, boolean isServer);
     }
 
     private record KEMInfo(/*ASN1ObjectIdentifier oid,*/ int codePoint, /*String jcaAlgorithm,*/ String standardName,
@@ -38,6 +43,13 @@ public class InjectedKEMs
     private static final Vector<Integer> injectedCodePoints = new Vector<>();
     private static final Map<Integer, KEMInfo> injectedKEMs = new HashMap<>();
 
+    public static void injectKEM(int kemCodePoint,
+                                 String standardName, KemFunction kemFunction) {
+        injectKEM(
+                kemCodePoint,
+                standardName,
+                (crypto, isServer) -> new KemAgreement(crypto, isServer, kemFunction.invoke()));
+    }
     public static void injectKEM(int kemCodePoint, //String jcaAlgorithmName,
                                  String standardName, TlsAgreementFunction tlsAgreementFunction) {
         KEMInfo info = new KEMInfo(kemCodePoint, /*jcaAlgorithmName,*/ standardName, tlsAgreementFunction);
@@ -72,7 +84,7 @@ public class InjectedKEMs
     }
 
     public static TlsAgreement getTlsAgreement(JcaTlsCrypto crypto, int kemCodePoint, boolean isServer) {
-        return injectedKEMs.get(kemCodePoint).tlsAgreementFunction.invoke(crypto, kemCodePoint, isServer);
+        return injectedKEMs.get(kemCodePoint).tlsAgreementFunction.invoke(crypto, isServer);
     }
 
 /*    public static boolean isParameterSupported(AsymmetricKeyParameter param) {
