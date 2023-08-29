@@ -15,7 +15,6 @@ import org.bouncycastle.tls.crypto.TlsECConfig;
 import org.bouncycastle.tls.crypto.TlsSecret;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
-import org.bouncycastle.tls.injection.kems.KEMAgreementBase;
 import org.bouncycastle.util.Arrays;
 
 public class TlsServerProtocol
@@ -404,45 +403,21 @@ public class TlsServerProtocol
                 // #pqc-tls #injection
                 assert crypto instanceof JcaTlsCrypto;
                 agreement = InjectedKEMs.getTlsAgreement((JcaTlsCrypto) crypto, namedGroup, true);
-                assert agreement instanceof KEMAgreementBase;
             }
             else
             {
                 throw new TlsFatalAlert(AlertDescription.internal_error);
             }
 
-            // #pqc-tls #injection (if-then part)
-            if (agreement instanceof KEMAgreementBase) {
-                KEMAgreementBase kem = (KEMAgreementBase)agreement;
+            // #pqc-tls #injection moved the following line here (due to the requirements of KemAgreement implementing TlsAgreement for KEMs):
+            agreement.receivePeerValue(clientShare.getKeyExchange());
+            byte[] key_exchange = agreement.generateEphemeral();
+            KeyShareEntry serverShare = new KeyShareEntry(namedGroup, key_exchange);
+            TlsExtensionsUtils.addKeyShareServerHello(serverHelloExtensions, serverShare);
 
-                // implementing server-side KEM: 1.KeyGen (called by kem.publicKey)
-                byte[] serverPublicKey = kem.publicKey();
-                    // ^^^ not used in non-double KEM but invoked, since KeyGen may also
-                    //     generate the secret to be encapsulated in the next step
-
-                // implementing server-side KEM: 2.Encapsulate (called by kem.encapsulatedSecret)
-                byte[] serverCiphertext = kem.encapsulatedSecret(clientShare.getKeyExchange());
-
-                // implementing server-side KEM: sending ciphertext to the client
-                KeyShareEntry serverShare = new KeyShareEntry(namedGroup, serverCiphertext);
-                TlsExtensionsUtils.addKeyShareServerHello(serverHelloExtensions, serverShare);
-
-                // for non-double KEM: just using the server secret
-                sharedSecret = kem.ownSecret();
-
-                // for double KEM TODO:
-                // 1) store kem (=agreement) somewhere
-                // 2) receive client ciphertext and Decapsulate with the stored kem (=agreement)
-                // 3) combine ownSecret with the decapsulated secret
-            }
-            else {
-                byte[] key_exchange = agreement.generateEphemeral();
-                KeyShareEntry serverShare = new KeyShareEntry(namedGroup, key_exchange);
-                TlsExtensionsUtils.addKeyShareServerHello(serverHelloExtensions, serverShare);
-
-                agreement.receivePeerValue(clientShare.getKeyExchange());
-                sharedSecret = agreement.calculateSecret();
-            }
+            // #pqc-tls #injection moved the following line from here (due to the requirements of KemAgreement implementing TlsAgreement for KEMs):
+            // agreement.receivePeerValue(clientShare.getKeyExchange());
+            sharedSecret = agreement.calculateSecret();
         }
 
         TlsUtils.establish13PhaseSecrets(tlsServerContext, pskEarlySecret, sharedSecret);

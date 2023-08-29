@@ -12,31 +12,32 @@ import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.SecretWithEncapsulation;
 import org.bouncycastle.crypto.digests.NullDigest;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.bouncycastle.pqc.crypto.frodo.*;
 import org.bouncycastle.pqc.crypto.sphincsplus.*;
-import org.bouncycastle.pqc.jcajce.interfaces.SPHINCSPlusPrivateKey;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
+import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPrivateKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
+import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SPHINCSPlusKeyFactorySpi;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SignatureSpi;
-import org.bouncycastle.tls.crypto.*;
+import org.bouncycastle.tls.SignatureAndHashAlgorithm;
+import org.bouncycastle.tls.crypto.TlsSigner;
+import org.bouncycastle.tls.crypto.TlsStreamSigner;
+import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
-import org.bouncycastle.tls.injection.kems.KEMAgreementBase;
+import org.bouncycastle.tls.injection.kems.KEM;
+import org.bouncycastle.tls.injection.kems.KemAgreement;
 import org.bouncycastle.tls.injection.keys.BC_ASN1_Converter;
 import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
 import org.bouncycastle.tls.injection.sigalgs.InjectedSigVerifiers;
 import org.bouncycastle.tls.injection.sigalgs.InjectedSigners;
 import org.bouncycastle.util.Pack;
-import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPrivateKey;
-import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SPHINCSPlusKeyFactorySpi;
-import org.bouncycastle.tls.*;
-import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.openquantumsafe.KeyEncapsulation;
 import org.openquantumsafe.Pair;
 
-import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -73,7 +74,6 @@ public class InjectablePQC {
     public static final ASN1ObjectIdentifier oqs_sphincssha2128fsimple_oid = new ASN1ObjectIdentifier("1.3.9999.6.4").branch("13");
 
 
-
     /*
      * RFC 8446 reserved for private use (0xFE00..0xFFFF)
      */
@@ -83,13 +83,12 @@ public class InjectablePQC {
     //public static final int oqs_sphincssha256256frobust_signaturescheme_codepoint = 0xfe72;
     //public static final int oqs_sphincssha256128frobust_signaturescheme_codepoint = 0xfe5e;
     public static final int oqs_sphincssha2128fsimple_signaturescheme_codepoint = 0xfeb3;
-    
+
 
     private static String OQS_SIG_NAME =
             //"SPHINCS+-SHAKE256-128f-robust"
             //"SPHINCS+-SHA256-128f-robust"
-            "SPHINCS+-SHA2-128f-simple"
-            ;
+            "SPHINCS+-SHA2-128f-simple";
     //private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.shake256_128f;
     //private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.shake_128f;
     private static SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.sha2_128f_simple;
@@ -142,14 +141,14 @@ public class InjectablePQC {
 
                         AlgorithmIdentifier algorithmIdentifier =
                                 new AlgorithmIdentifier(sigOid);
-                                //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
+                        //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
                         return new PrivateKeyInfo(algorithmIdentifier, new DEROctetString(encoding), attributes, pubEncoding);
                     }
 
                     @Override
                     public AsymmetricKeyParameter createPublicKeyParameter(SubjectPublicKeyInfo keyInfo, Object defaultParams) throws IOException {
                         byte[] wrapped = keyInfo.getEncoded(); // ASN1 wrapped
-                        byte[] keyEnc = Arrays.copyOfRange(wrapped, wrapped.length-sphincsPlusPKLength, wrapped.length) ; // ASN1OctetString.getInstance(keyInfo.parsePublicKey()).getOctets();
+                        byte[] keyEnc = Arrays.copyOfRange(wrapped, wrapped.length - sphincsPlusPKLength, wrapped.length); // ASN1OctetString.getInstance(keyInfo.parsePublicKey()).getOctets();
                         AlgorithmIdentifier alg = keyInfo.getAlgorithm();
                         ASN1ObjectIdentifier oid = alg.getAlgorithm();
                         int i = sphincsPlusParametersAsInt; // TODO: get i from associated oid
@@ -167,12 +166,12 @@ public class InjectablePQC {
                         encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
 
                         AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(sigOid);//??? -- does not matter
-                       // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
+                        // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
                         return new SubjectPublicKeyInfo(algorithmIdentifier, new DEROctetString(encoding));
                     }
                 },
                 new SPHINCSPlusKeyFactorySpi(),
-                (PublicKey pk)->{
+                (PublicKey pk) -> {
                     if (pk instanceof BCSPHINCSPlusPublicKey)
                         return new SphincsPlusSignatureSpi();
                     else
@@ -212,7 +211,7 @@ public class InjectablePQC {
                 });
 
         InjectedKEMs.injectKEM(oqs_frodo640aes_codepoint, "FrodoKEM-640-AES",
-                (crypto, kemCodePoint, isServer) -> new InjectableFrodoKEMAgreement(crypto, "FrodoKEM-640-AES", isServer));
+                (crypto, kemCodePoint, isServer) -> new KemAgreement(crypto, isServer, new InjectableFrodoKEM()));
 
         BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
         Security.insertProviderAt(jsseProvider, 1);
@@ -232,12 +231,12 @@ public class InjectablePQC {
 
         //BCSPHINCSPlusPrivateKey privateKey = null;
         //public InjectableSphincsPlusTlsSigner() {
-          //  super();
+        //  super();
         //}
 
         //public InjectableSphincsPlusTlsSigner(BCSPHINCSPlusPrivateKey privateKey) {
-          //  super();
-            //this.privateKey = privateKey;
+        //  super();
+        //this.privateKey = privateKey;
         //}
         private SPHINCSPlusPrivateKeyParameters skParams = null;
         public SPHINCSPlusPublicKeyParameters pkParams = null;
@@ -248,10 +247,10 @@ public class InjectablePQC {
             if (param instanceof SPHINCSPlusPrivateKeyParameters) {
                 skParams = (SPHINCSPlusPrivateKeyParameters) param;
                 pkParams = new SPHINCSPlusPublicKeyParameters(skParams.getParameters(), skParams.getPublicKey()); // needed for verifiers
-            }
-            else
-                pkParams = (SPHINCSPlusPublicKeyParameters)param;
+            } else
+                pkParams = (SPHINCSPlusPublicKeyParameters) param;
         }
+
         @Override
         public byte[] generateRawSignature(SignatureAndHashAlgorithm algorithm, byte[] hash) throws IOException {
             return this.generateSignature(hash);
@@ -304,11 +303,11 @@ public class InjectablePQC {
             byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
 
             //System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
-              //      InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
-                //    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
+            //      InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
+            //    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
 
             //System.out.printf("BC SIGNATURE VERIFY: oqs bc%b\n",
-                    //InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
+            //InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
             //        InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
 
             return bcSignature;
@@ -352,13 +351,13 @@ public class InjectablePQC {
         }
     }
 
-    public static class InjectableFrodoKEMAgreement extends KEMAgreementBase {
+    public static class InjectableFrodoKEM implements KEM {
         //private org.openquantumsafe.KeyEncapsulation kem;
         // ^^^ if via liboqs + JNI + DLL
         FrodoKeyPairGenerator kemGen; // - if via BC
 
-        public InjectableFrodoKEMAgreement(JcaTlsCrypto crypto, String kemName, boolean isServer) {
-            super(crypto, isServer);
+        public InjectableFrodoKEM() {
+            // String kemName = "FrodoKEM-640-AES";
             //this.kem = new org.openquantumsafe.KeyEncapsulation(kemName);
             // ^^^ if via liboqs + JNI + DLL
 
@@ -367,14 +366,13 @@ public class InjectablePQC {
         }
 
 
-
         @Override
         public Pair<byte[], byte[]> keyGen() {
+            // at the client side:
 
             // if via liboqs JNI + DLL:
             //byte[] myPublicKey = kem.generate_keypair().clone();
             //byte[] myPrivateKey = kem.export_secret_key().clone();
-
 
 
             // if pure Java (BouncyCastle):
@@ -386,54 +384,44 @@ public class InjectablePQC {
             byte[] myPublicKey = pubParams.getPublicKey().clone();//publicKey.clone();
             byte[] myPrivateKey = privParams.getPrivateKey().clone();
 
-            if (this.isServer()) {
-                return new Pair<>(new byte[]{}, new byte[]{}); // not needed by the server
-            }
-            else {
-                return new Pair<>(myPublicKey, myPrivateKey);
-            }
+            return new Pair<>(myPublicKey, myPrivateKey);
         }
 
         @Override
         public Pair<byte[], byte[]> encapsulate(byte[] partnerPublicKey) {
-            if (this.isServer()) {
-                // if via liboqs JNI + DLL:
-                //Pair<byte[], byte[]> pair = kem.encap_secret(partnerPublicKey);
-                //byte[] ciphertext = pair.getLeft();
-                //byte[] semiSecret = pair.getRight();
-                //return new Pair<>(semiSecret, ciphertext);
+            // at the server side:
+            // if via liboqs JNI + DLL:
+            //Pair<byte[], byte[]> pair = kem.encap_secret(partnerPublicKey);
+            //byte[] ciphertext = pair.getLeft();
+            //byte[] semiSecret = pair.getRight();
+            //return new Pair<>(semiSecret, ciphertext);
 
 
-                FrodoKEMGenerator gen = new FrodoKEMGenerator(new SecureRandom());
-                FrodoPublicKeyParameters pub = new FrodoPublicKeyParameters(FrodoParameters.frodokem640aes, partnerPublicKey);
+            FrodoKEMGenerator gen = new FrodoKEMGenerator(new SecureRandom());
+            FrodoPublicKeyParameters pub = new FrodoPublicKeyParameters(FrodoParameters.frodokem640aes, partnerPublicKey);
 
-                SecretWithEncapsulation secretWithEncapsulation = gen.generateEncapsulated(pub);
+            SecretWithEncapsulation secretWithEncapsulation = gen.generateEncapsulated(pub);
 
-                //this.mySecret = secretWithEncapsulation.getSecret(); -- will be assigned automatically
+            //this.mySecret = secretWithEncapsulation.getSecret(); -- will be assigned automatically
 
-                return new Pair<>(secretWithEncapsulation.getSecret(), secretWithEncapsulation.getEncapsulation());
-            }
-            else { // client
-                return new Pair<>(new byte[]{}, new byte[]{});
-            }
+            return new Pair<>(secretWithEncapsulation.getSecret(), secretWithEncapsulation.getEncapsulation());
+
         }
 
         @Override
         public byte[] decapsulate(byte[] secretKey, byte[] ciphertext) {
-            byte[] sharedSecret;
-            if (this.isServer()) {
-                sharedSecret = this.mySecret;
-            }
-            else {
-                // assert: this.secretKey == secretKey
-                // if via libqs JNI + DLL:
-                //sharedSecret = kem.decap_secret(ciphertext);
+            // at the client side
 
-                // if BC:
-                FrodoPrivateKeyParameters priv = new FrodoPrivateKeyParameters(FrodoParameters.frodokem640aes, secretKey);
-                FrodoKEMExtractor ext = new FrodoKEMExtractor(priv);
-                sharedSecret = ext.extractSecret(ciphertext);
-            }
+            byte[] sharedSecret;
+
+            // assert: this.secretKey == secretKey
+            // if via libqs JNI + DLL:
+            //sharedSecret = kem.decap_secret(ciphertext);
+
+            // if BC:
+            FrodoPrivateKeyParameters priv = new FrodoPrivateKeyParameters(FrodoParameters.frodokem640aes, secretKey);
+            FrodoKEMExtractor ext = new FrodoKEMExtractor(priv);
+            sharedSecret = ext.extractSecret(ciphertext);
 
             // if via liboqs JNI + DLL:
             // this.kem.dispose_KEM();
@@ -447,21 +435,23 @@ public class InjectablePQC {
     public static String byteArrayToString(byte[] a) {
         return byteArrayToString(a, "");
     }
+
     public static String byteArrayToString(byte[] a, String delim) {
         String s = "";
         for (byte b : a) {
-            if (s.length()>0)
+            if (s.length() > 0)
                 s += delim;
             s += String.format("%02x", b);
         }
         return s;
     }
+
     public static byte[] hexStringToByteArray(String s) {
         int len = s.length();
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+                    + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
     }
@@ -515,11 +505,11 @@ public class InjectablePQC {
 
 
         for (String s : org.openquantumsafe.Sigs.get_enabled_sigs()) {
-            System.out.println("SIG "+s);
+            System.out.println("SIG " + s);
         }
         String pkStr = "8776619e7fc2ca19b0be40157190208680007c01b855256123e2866ae71ad34616af34d2a08542a6fcd8b9ceab9ea4fa4bf640a5cd866f87aad16a971603e173";
         byte[] sk = hexStringToByteArray(pkStr);
-        byte[] pk = Arrays.copyOfRange(sk, sk.length-32, sk.length);
+        byte[] pk = Arrays.copyOfRange(sk, sk.length - 32, sk.length);
 
 
         org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
@@ -527,9 +517,9 @@ public class InjectablePQC {
         oqsSigner.generate_keypair();
         pk = oqsSigner.export_public_key();
         sk = oqsSigner.export_secret_key();
-        System.out.println("OQS KEYPAIR: "+sk.length+" "+pk.length);
-        System.out.println("OQS PK "+byteArrayToString(pk));
-        System.out.println("OQS SK "+byteArrayToString(sk));
+        System.out.println("OQS KEYPAIR: " + sk.length + " " + pk.length);
+        System.out.println("OQS PK " + byteArrayToString(pk));
+        System.out.println("OQS SK " + byteArrayToString(sk));
 
 
         SPHINCSPlusKeyPairGenerator generator = new SPHINCSPlusKeyPairGenerator();
@@ -544,23 +534,23 @@ public class InjectablePQC {
         pk = Arrays.copyOfRange(pk, 4, pk.length);
         sk = _sk.getEncoded();
         sk = Arrays.copyOfRange(sk, 4, sk.length);
-        System.out.println("BC5 KEYPAIR: "+sk.length+" "+pk.length);
-        System.out.println("BC PK "+byteArrayToString(pk));
-        System.out.println("BC SK "+byteArrayToString(sk));
+        System.out.println("BC5 KEYPAIR: " + sk.length + " " + pk.length);
+        System.out.println("BC PK " + byteArrayToString(pk));
+        System.out.println("BC SK " + byteArrayToString(sk));
         //// <= comment to use LibOQS-generated keys
 
         // TODO: compile and test with latest liboqs 0.8.1-dev
         // https://github.com/open-quantum-safe/liboqs/blob/main/RELEASE.md
 
-        byte[] message = new byte[] {};// {0, 1, 2};
+        byte[] message = new byte[]{};// {0, 1, 2};
 
         System.out.printf("Signing message '%s'...\n", byteArrayToString(message));
 
         byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
         byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
 
-        System.out.printf("OQS SIG:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature).length() + " "+byteArrayToString(Arrays.copyOfRange(oqsSignature, 0, 50)));
-        System.out.printf("BC SIG:\n%s\n", InjectablePQC.byteArrayToString(bcSignature).length()+ " "+byteArrayToString(Arrays.copyOfRange(bcSignature, 0, 50)));
+        System.out.printf("OQS SIG:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature).length() + " " + byteArrayToString(Arrays.copyOfRange(oqsSignature, 0, 50)));
+        System.out.printf("BC SIG:\n%s\n", InjectablePQC.byteArrayToString(bcSignature).length() + " " + byteArrayToString(Arrays.copyOfRange(bcSignature, 0, 50)));
 
         //System.out.printf("OQS SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature));
         System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
