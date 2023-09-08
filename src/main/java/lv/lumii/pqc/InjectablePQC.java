@@ -19,25 +19,20 @@ import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPrivateKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SPHINCSPlusKeyFactorySpi;
-import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SignatureSpi;
+import org.bouncycastle.tls.DigitallySigned;
 import org.bouncycastle.tls.SignatureAndHashAlgorithm;
 import org.bouncycastle.tls.crypto.TlsSigner;
 import org.bouncycastle.tls.crypto.TlsStreamSigner;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.bouncycastle.tls.injection.kems.KEM;
-import org.bouncycastle.tls.injection.kems.KemAgreement;
-import org.bouncycastle.tls.injection.keys.BC_ASN1_Converter;
-import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
-import org.bouncycastle.tls.injection.sigalgs.InjectedSigVerifiers;
-import org.bouncycastle.tls.injection.sigalgs.InjectedSigners;
+import org.bouncycastle.tls.injection.sigalgs.*;
+import org.bouncycastle.tls.injection.signaturespi.UniversalSignatureSpi;
 import org.bouncycastle.util.Pack;
 import org.openquantumsafe.KeyEncapsulation;
 import org.openquantumsafe.Pair;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -109,75 +104,144 @@ public class InjectablePQC {
 
         InjectedKEMs.injectionOrder = injectionOrder;
 
+        SigAlgAPI api = new SigAlgAPI() {
+            @Override
+            public boolean isSupportedParameter(AsymmetricKeyParameter someKey) {
+                return someKey instanceof SPHINCSPlusPublicKeyParameters ||
+                        someKey instanceof SPHINCSPlusPrivateKeyParameters;
+            }
+
+            @Override
+            public AsymmetricKeyParameter createPrivateKeyParameter(PrivateKeyInfo keyInfo) throws IOException {
+                byte[] keyEnc = ASN1OctetString.getInstance(keyInfo.parsePrivateKey()).getOctets();
+                // ^^^ if it were: keyInfo.getEncoded() contains also additional stuff, including OID
+                // keyInfo.getPrivateKey().getEncoded() contains also SPHINCS+ parameters (4 bytes, big endian)
+                SPHINCSPlusParameters spParams = sphincsPlusParameters;
+
+                return new SPHINCSPlusPrivateKeyParameters(spParams, Arrays.copyOfRange(keyEnc, 0, sphincsPlusSKLength));
+                // ^^^ since SPHINCS+ keyEnc (as used by OpenQuantumSafe) contains both private key and public key, we need to keep only the private key encoding
+            }
+
+            @Override
+            public PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException {
+                SPHINCSPlusPrivateKeyParameters params = (SPHINCSPlusPrivateKeyParameters) privateKey;
+
+                byte[] encoding = params.getEncoded(); // ££££
+                byte[] pubEncoding = params.getEncodedPublicKey();
+
+                // remove alg params (4 bytes)
+                encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+                pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length);
+
+                AlgorithmIdentifier algorithmIdentifier =
+                        new AlgorithmIdentifier(sigOid);
+                //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
+                return new PrivateKeyInfo(algorithmIdentifier, new DEROctetString(encoding), attributes, pubEncoding);
+            }
+
+            @Override
+            public AsymmetricKeyParameter createPublicKeyParameter(SubjectPublicKeyInfo keyInfo, Object defaultParams) throws IOException {
+                byte[] wrapped = keyInfo.getEncoded(); // ASN1 wrapped
+                SubjectPublicKeyInfo info = SubjectPublicKeyInfo.getInstance(wrapped);
+                byte[] keyEnc = info.getPublicKeyData().getBytes();
+                //byte[] keyEnc = Arrays.copyOfRange(wrapped, wrapped.length - sphincsPlusPKLength, wrapped.length);
+                AlgorithmIdentifier alg = keyInfo.getAlgorithm();
+                ASN1ObjectIdentifier oid = alg.getAlgorithm();
+                int i = sphincsPlusParametersAsInt; // TODO: get i from associated oid
+                SPHINCSPlusParameters spParams = SPHINCSPlusParameters.getParams(i);
+                return new SPHINCSPlusPublicKeyParameters(spParams, keyEnc);
+            }
+
+            @Override
+            public SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey) throws IOException {
+                SPHINCSPlusPublicKeyParameters params = (SPHINCSPlusPublicKeyParameters) publicKey;
+
+                byte[] encoding = params.getEncoded();
+
+                // remove the first 4 bytes (alg. params)
+                encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+
+                AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(sigOid);//??? -- does not matter
+                // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
+                return new SubjectPublicKeyInfo(algorithmIdentifier, new DEROctetString(encoding));
+            }
+
+            @Override
+            public PrivateKey generatePrivate(PrivateKeyInfo keyInfo) throws IOException {
+                return new SPHINCSPlusKeyFactorySpi().generatePrivate(keyInfo);
+            }
+
+            @Override
+            public PublicKey generatePublic(SubjectPublicKeyInfo keyInfo) throws IOException {
+                return new SPHINCSPlusKeyFactorySpi().generatePublic(keyInfo);
+            }
+
+            @Override
+            public byte[] sign(byte[] message, byte[] privateKey) throws IOException {
+                SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
+
+                privateKey = Arrays.copyOfRange(privateKey, 4, privateKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
+                //int sphincsPlusParams = Pack.bigEndianToInt(privateKey, 0);
+
+
+                signer.init(true, new SPHINCSPlusPrivateKeyParameters(sphincsPlusParameters, privateKey));
+                byte[] bcSignature = signer.generateSignature(message);
+                return bcSignature;
+            }
+
+            @Override
+            public boolean verifySignature(byte[] message, byte[] publicKey, DigitallySigned signature) {
+
+
+
+                publicKey = Arrays.copyOfRange(publicKey, 4, publicKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
+                //int sphincsPlusParams = Pack.bigEndianToInt(publicKey, 0);
+
+                // BouncyCastle verifier
+
+                SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
+
+                SPHINCSPlusPublicKeyParameters params = new SPHINCSPlusPublicKeyParameters(
+                        sphincsPlusParameters, publicKey);
+                signer.init(false, params);
+                boolean b = signer.verifySignature(message, signature.getSignature());
+                return b;
+            }
+        };
+
         InjectedSigAlgorithms.injectSigAndHashAlgorithm(
                 "SPHINCS+",//"SPHINCSPLUS",
                 sigOid,
                 sigCodePoint,
-                new BC_ASN1_Converter() {
-                    @Override
-                    public boolean isSupportedParameter(AsymmetricKeyParameter someKey) {
-                        return someKey instanceof SPHINCSPlusPublicKeyParameters ||
-                                someKey instanceof SPHINCSPlusPrivateKeyParameters;
-                    }
+                api,
+                (PublicKey publicKey) -> {
+                    if (publicKey instanceof BCSPHINCSPlusPublicKey) {
+                        PublicKeyToCipherParameters f1 = (pk) -> ((BCSPHINCSPlusPublicKey) pk).getKeyParams();
+                        PrivateKeyToCipherParameters f2 = (sk) -> ((BCSPHINCSPlusPrivateKey) sk).getKeyParams();
 
-                    @Override
-                    public AsymmetricKeyParameter createPrivateKeyParameter(PrivateKeyInfo keyInfo) throws IOException {
-                        byte[] keyEnc = ASN1OctetString.getInstance(keyInfo.parsePrivateKey()).getOctets(); // £££
-                        // ^^^ if it were: keyInfo.getEncoded() contains also additional stuff, including OID
-                        SPHINCSPlusParameters spParams = sphincsPlusParameters;
-                        return new SPHINCSPlusPrivateKeyParameters(spParams, Arrays.copyOfRange(keyEnc, 0, sphincsPlusSKLength));
-                    }
-
-                    @Override
-                    public PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException {
-                        SPHINCSPlusPrivateKeyParameters params = (SPHINCSPlusPrivateKeyParameters) privateKey;
-
-                        byte[] encoding = params.getEncoded(); // ££££
-                        byte[] pubEncoding = params.getEncodedPublicKey();
-
-                        // remove alg params (4 bytes)
-                        encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
-                        pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length);
-
-                        AlgorithmIdentifier algorithmIdentifier =
-                                new AlgorithmIdentifier(sigOid);
-                        //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
-                        return new PrivateKeyInfo(algorithmIdentifier, new DEROctetString(encoding), attributes, pubEncoding);
-                    }
-
-                    @Override
-                    public AsymmetricKeyParameter createPublicKeyParameter(SubjectPublicKeyInfo keyInfo, Object defaultParams) throws IOException {
-                        byte[] wrapped = keyInfo.getEncoded(); // ASN1 wrapped
-                        byte[] keyEnc = Arrays.copyOfRange(wrapped, wrapped.length - sphincsPlusPKLength, wrapped.length); // ASN1OctetString.getInstance(keyInfo.parsePublicKey()).getOctets();
-                        AlgorithmIdentifier alg = keyInfo.getAlgorithm();
-                        ASN1ObjectIdentifier oid = alg.getAlgorithm();
-                        int i = sphincsPlusParametersAsInt; // TODO: get i from associated oid
-                        SPHINCSPlusParameters spParams = SPHINCSPlusParameters.getParams(i);
-                        return new SPHINCSPlusPublicKeyParameters(spParams, keyEnc);
-                    }
-
-                    @Override
-                    public SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey) throws IOException {
-                        SPHINCSPlusPublicKeyParameters params = (SPHINCSPlusPublicKeyParameters) publicKey;
-
-                        byte[] encoding = params.getEncoded();
-
-                        // remove the first 4 bytes (alg. params)
-                        encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
-
-                        AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(sigOid);//??? -- does not matter
-                        // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
-                        return new SubjectPublicKeyInfo(algorithmIdentifier, new DEROctetString(encoding));
-                    }
-                },
-                new SPHINCSPlusKeyFactorySpi(),
-                (PublicKey pk) -> {
-                    if (pk instanceof BCSPHINCSPlusPublicKey)
-                        return new SphincsPlusSignatureSpi();
-                    else
+                        return new UniversalSignatureSpi(new NullDigest(),
+                                new MyMessageSigner(
+                                        sigCodePoint,
+                                        (data, key) -> api.sign(data, key),
+                                        (message, pk, signature) -> api.verifySignature(message, pk, signature),
+                                        (params) -> {
+                                            assert params instanceof SPHINCSPlusPublicKeyParameters;
+                                            SPHINCSPlusPublicKeyParameters pkParams = (SPHINCSPlusPublicKeyParameters) params;
+                                            return pkParams.getEncoded();
+                                        },
+                                        (params) -> {
+                                            assert params instanceof SPHINCSPlusPrivateKeyParameters;
+                                            SPHINCSPlusPrivateKeyParameters skParams = (SPHINCSPlusPrivateKeyParameters) params;
+                                            SPHINCSPlusPublicKeyParameters pkParams = new SPHINCSPlusPublicKeyParameters(skParams.getParameters(), skParams.getPublicKey()); // needed for verifiers
+                                            return pkParams.getEncoded();
+                                        }),
+                                f1, f2);
+                        //return new SphincsPlusSignatureSpi();
+                    } else
                         throw new RuntimeException("Only SPHINCS+ is supported in this implementation of InjectedSignatureSpi.Factory");
                 }
         );
+        /*
         InjectedSigners.injectSigner("SPHINCS+", (JcaTlsCrypto crypto, PrivateKey privateKey) -> {
             assert (privateKey instanceof BCSPHINCSPlusPrivateKey);
 
@@ -185,11 +249,11 @@ public class InjectablePQC {
             InjectableSphincsPlusTlsSigner signer = new InjectableSphincsPlusTlsSigner();
 
             SPHINCSPlusPrivateKeyParameters p = (SPHINCSPlusPrivateKeyParameters) sk.getKeyParams();
-
+* TODO: make this function look like the next one (e.g., VerifySignatureFunction)
             byte[] keys = p.getEncoded(); // TODO: read sphincsPlusParameters from the first 4 big-endian bytes
             SPHINCSPlusPrivateKeyParameters newP = new SPHINCSPlusPrivateKeyParameters(sphincsPlusParameters,
                     Arrays.copyOfRange(keys, 4, keys.length));
-            p = newP;
+            p = newP;*
             signer.init(true, p);
 
             return signer;
@@ -197,10 +261,10 @@ public class InjectablePQC {
         InjectedSigVerifiers.injectVerifier(
                 sigCodePoint,
                 (InjectedSigVerifiers.VerifySignatureFunction) (data, key, signature) -> {
+                    // BouncyCastle verifier
                     int from = 26; // see der.md
                     int priorTo = key.length;
-                    //SPHINCSPlusSigner signer = new SPHINCSPlusSigner(); -- otherwise we need to modify SignatureSpi
-                    InjectableSphincsPlusTlsSigner signer = new InjectableSphincsPlusTlsSigner();
+                    SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
 
                     byte[] pubKey = Arrays.copyOfRange(key, from, priorTo);
                     SPHINCSPlusPublicKeyParameters params = new SPHINCSPlusPublicKeyParameters(
@@ -208,12 +272,12 @@ public class InjectablePQC {
                     signer.init(false, params);
                     boolean b = signer.verifySignature(data, signature.getSignature());
                     return b;
-                });
+                });*/
 
         //InjectedKEMs.injectKEM(oqs_frodo640aes_codepoint, "FrodoKEM-640-AES",
-          //      (crypto, isServer) -> new KemAgreement(crypto, isServer, new InjectableFrodoKEM()));
+        //      (crypto, isServer) -> new KemAgreement(crypto, isServer, new InjectableFrodoKEM()));
         InjectedKEMs.injectKEM(oqs_frodo640aes_codepoint, "FrodoKEM-640-AES",
-                ()->new InjectableFrodoKEM());
+                () -> new InjectableFrodoKEM());
 
         BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
         Security.insertProviderAt(jsseProvider, 1);
@@ -222,136 +286,6 @@ public class InjectablePQC {
         Security.insertProviderAt(bcProvider, 1);
     }
 
-    public static class SphincsPlusSignatureSpi extends SignatureSpi { // non-private, otherwise, Java reflection doesn't see it
-        public SphincsPlusSignatureSpi() {
-            super(new NullDigest(), new InjectableSphincsPlusTlsSigner());
-        }
-    }
-
-
-    public static class InjectableSphincsPlusTlsSigner extends SPHINCSPlusSigner implements TlsSigner {
-
-        //BCSPHINCSPlusPrivateKey privateKey = null;
-        //public InjectableSphincsPlusTlsSigner() {
-        //  super();
-        //}
-
-        //public InjectableSphincsPlusTlsSigner(BCSPHINCSPlusPrivateKey privateKey) {
-        //  super();
-        //this.privateKey = privateKey;
-        //}
-        private SPHINCSPlusPrivateKeyParameters skParams = null;
-        public SPHINCSPlusPublicKeyParameters pkParams = null;
-
-        @Override
-        public void init(boolean forSigning, CipherParameters param) {
-            super.init(forSigning, param);
-            if (param instanceof SPHINCSPlusPrivateKeyParameters) {
-                skParams = (SPHINCSPlusPrivateKeyParameters) param;
-                pkParams = new SPHINCSPlusPublicKeyParameters(skParams.getParameters(), skParams.getPublicKey()); // needed for verifiers
-            } else
-                pkParams = (SPHINCSPlusPublicKeyParameters) param;
-        }
-
-        @Override
-        public byte[] generateRawSignature(SignatureAndHashAlgorithm algorithm, byte[] hash) throws IOException {
-            return this.generateSignature(hash);
-        }
-
-        @Override
-        public TlsStreamSigner getStreamSigner(SignatureAndHashAlgorithm algorithm) throws IOException {
-            return new MyStreamSigner(algorithm);
-        }
-
-        public static byte[] generateSignature_oqs(byte[] message, byte[] sk) {
-            org.openquantumsafe.Signature oqsSigner = new org.openquantumsafe.Signature(
-                    OQS_SIG_NAME,
-                    sk);
-            byte[] oqsSignature = oqsSigner.sign(message);
-            return oqsSignature;
-        }
-
-        public static byte[] generateSignature_bc(byte[] message, byte[] sk) {
-            SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
-            signer.init(true, new SPHINCSPlusPrivateKeyParameters(sphincsPlusParameters, sk));
-            //signer.initForSigning(new SPHINCSPlusPrivateKeyParameters(SPHINCSPlusParameters.shake_128f, sk));
-            byte[] bcSignature = signer.generateSignature(message);
-            return bcSignature;
-        }
-
-        public static boolean verifySignature_oqs(byte[] message, byte[] signature, byte[] publicKey) {
-            org.openquantumsafe.Signature oqsVerifier = new org.openquantumsafe.Signature(
-                    OQS_SIG_NAME);
-            boolean result = oqsVerifier.verify(message, signature, publicKey);
-            return result;
-        }
-
-        public static boolean verifySignature_bc(byte[] message, byte[] signature, byte[] publicKey) {
-            SPHINCSPlusSigner verifier = new SPHINCSPlusSigner();
-            verifier.init(false, new SPHINCSPlusPublicKeyParameters(sphincsPlusParameters, publicKey));
-            boolean result = verifier.verifySignature(message, signature);
-            return result;
-        }
-
-        @Override
-        public byte[] generateSignature(byte[] message) {
-            // override with oqs implementation
-            byte[] sk = skParams.getEncoded();
-            int sphincsPlusParams = Pack.bigEndianToInt(sk, 0);
-            sk = Arrays.copyOfRange(sk, 4, sk.length);
-
-            byte[] pk = skParams.getPublicKey();
-            //byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
-            byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
-
-            //System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
-            //      InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
-            //    InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
-
-            //System.out.printf("BC SIGNATURE VERIFY: oqs bc%b\n",
-            //InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
-            //        InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
-
-            return bcSignature;
-        }
-
-
-        @Override
-        public boolean verifySignature(byte[] message, byte[] signature) {
-
-            // override with oqs implementation
-            byte[] pk = pkParams.getEncoded();
-            int sphincsPlusParams = Pack.bigEndianToInt(pk, 0);
-            // 4 bytes big endian - params ID
-            pk = Arrays.copyOfRange(pk, 4, pk.length);
-
-            //boolean result = InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, signature, pk);
-            boolean result = InjectableSphincsPlusTlsSigner.verifySignature_bc(message, signature, pk);
-            return result;
-        }
-
-        private class MyStreamSigner implements TlsStreamSigner {
-
-            SignatureAndHashAlgorithm algorithm;
-            private ByteArrayOutputStream os = new ByteArrayOutputStream();
-
-            public MyStreamSigner(SignatureAndHashAlgorithm algorithm) {
-                this.algorithm = algorithm;
-            }
-
-            @Override
-            public OutputStream getOutputStream() throws IOException {
-                return os;
-            }
-
-            @Override
-            public byte[] getSignature() throws IOException {
-                byte[] data = os.toByteArray();
-                byte[] signature = InjectableSphincsPlusTlsSigner.this.generateSignature(data);
-                return signature;
-            }
-        }
-    }
 
     public static class InjectableFrodoKEM implements KEM {
         //private org.openquantumsafe.KeyEncapsulation kem;
@@ -544,24 +478,7 @@ public class InjectablePQC {
         // TODO: compile and test with latest liboqs 0.8.1-dev
         // https://github.com/open-quantum-safe/liboqs/blob/main/RELEASE.md
 
-        byte[] message = new byte[]{};// {0, 1, 2};
 
-        System.out.printf("Signing message '%s'...\n", byteArrayToString(message));
-
-        byte[] oqsSignature = InjectableSphincsPlusTlsSigner.generateSignature_oqs(message, sk);
-        byte[] bcSignature = InjectableSphincsPlusTlsSigner.generateSignature_bc(message, sk);
-
-        System.out.printf("OQS SIG:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature).length() + " " + byteArrayToString(Arrays.copyOfRange(oqsSignature, 0, 50)));
-        System.out.printf("BC SIG:\n%s\n", InjectablePQC.byteArrayToString(bcSignature).length() + " " + byteArrayToString(Arrays.copyOfRange(bcSignature, 0, 50)));
-
-        //System.out.printf("OQS SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(oqsSignature));
-        System.out.printf("OQS SIGNATURE VERIFY: oqs:%b bc:%b\n",
-                InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, oqsSignature, pk),
-                InjectableSphincsPlusTlsSigner.verifySignature_bc(message, oqsSignature, pk));
-        //System.out.printf("BC SIGNATURE:\n%s\n", InjectablePQC.byteArrayToString(bcSignature));
-        System.out.printf("BC SIGNATURE VERIFY: oqs:%b bc:%b\n",
-                InjectableSphincsPlusTlsSigner.verifySignature_oqs(message, bcSignature, pk),
-                InjectableSphincsPlusTlsSigner.verifySignature_bc(message, bcSignature, pk));
 
     }
 

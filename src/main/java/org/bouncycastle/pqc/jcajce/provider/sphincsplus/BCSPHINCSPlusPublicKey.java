@@ -98,7 +98,7 @@ public class BCSPHINCSPlusPublicKey
         return SPHINCSPlusParameterSpec.fromName(params.getParameters().getName());
     }
 
-    CipherParameters getKeyParams()
+    public CipherParameters getKeyParams()
     {
         return params;
     }

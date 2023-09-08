@@ -1,6 +1,5 @@
 package org.bouncycastle.tls.injection.kems;
 
-import lv.lumii.pqc.InjectablePQC;
 import org.bouncycastle.tls.crypto.TlsAgreement;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 
@@ -11,7 +10,7 @@ import java.util.logging.Logger;
  * The class for storing information of injected key encapsulation mechanisms (KEMs) ~ named groups ~ curves.
  * (For the needs of Post-Quantum Cryptography, DH/ECC groups/curves have been replaced by KEMs.)
  *
- * KEMI is used by NamedGroupInfo (as an extension) and JcaTLsCrypto (which relies
+ * KEM is used by NamedGroupInfo (as an extension) and JcaTLsCrypto (which relies
  * on KEM.isInjectedKEMCodePoint).
  *
  * #pqc-tls #injection
@@ -28,31 +27,31 @@ public class InjectedKEMs
     }
     public static InjectionOrder injectionOrder = InjectionOrder.AFTER_DEFAULT;
 
-    public interface KemFunction {
-        KEM invoke();
+    public interface KemFactory {
+        KEM create();
     }
 
-    public interface TlsAgreementFunction {
-        TlsAgreement invoke(JcaTlsCrypto crypto, boolean isServer);
+    public interface TlsAgreementFactory {
+        TlsAgreement create(JcaTlsCrypto crypto, boolean isServer);
     }
 
     private record KEMInfo(/*ASN1ObjectIdentifier oid,*/ int codePoint, /*String jcaAlgorithm,*/ String standardName,
-                                                         TlsAgreementFunction tlsAgreementFunction) {
+                                                         TlsAgreementFactory tlsAgreementFactory) {
     }
 
     private static final Vector<Integer> injectedCodePoints = new Vector<>();
     private static final Map<Integer, KEMInfo> injectedKEMs = new HashMap<>();
 
     public static void injectKEM(int kemCodePoint,
-                                 String standardName, KemFunction kemFunction) {
+                                 String standardName, KemFactory kemFactory) {
         injectKEM(
                 kemCodePoint,
                 standardName,
-                (crypto, isServer) -> new KemAgreement(crypto, isServer, kemFunction.invoke()));
+                (crypto, isServer) -> new TlsAgreementForKEM(crypto, isServer, kemFactory.create()));
     }
     public static void injectKEM(int kemCodePoint, //String jcaAlgorithmName,
-                                 String standardName, TlsAgreementFunction tlsAgreementFunction) {
-        KEMInfo info = new KEMInfo(kemCodePoint, /*jcaAlgorithmName,*/ standardName, tlsAgreementFunction);
+                                 String standardName, TlsAgreementFactory tlsAgreementFactory) {
+        KEMInfo info = new KEMInfo(kemCodePoint, /*jcaAlgorithmName,*/ standardName, tlsAgreementFactory);
         injectedCodePoints.add(kemCodePoint);
         injectedKEMs.put(kemCodePoint, info);
     }
@@ -84,7 +83,7 @@ public class InjectedKEMs
     }
 
     public static TlsAgreement getTlsAgreement(JcaTlsCrypto crypto, int kemCodePoint, boolean isServer) {
-        return injectedKEMs.get(kemCodePoint).tlsAgreementFunction.invoke(crypto, isServer);
+        return injectedKEMs.get(kemCodePoint).tlsAgreementFactory.create(crypto, isServer);
     }
 
 /*    public static boolean isParameterSupported(AsymmetricKeyParameter param) {

@@ -14,7 +14,7 @@ import java.security.*;
  *
  * Internally, DirectSignatureSpi tries all injected SignatureSpi factories until
  * some factory returns a valid SignatureSpi. Then this SignatureSpi is used as a delegate
- * to which SignatureSpi method invocations are forwarded (via Java reflection).
+ * to which SignatureSpi method invocations are forwarded (via Java reflection due to protected method declarations).
  *
  * #pqc-tls #injection
  *

@@ -34,22 +34,17 @@ public class InjectedSigAlgorithms
             //     Actually, the highest (the second) byte does not necessarily correspond to the hash algorithm,
             //     but we still use the BC SignatureAndHashAlgorithm class since it is needed internally
             //     in many places within BC code.
-        private BC_ASN1_Converter converter;
-        private AsymmetricKeyInfoConverter infoToKeyConverter;
-        private SignatureSpiFromPublicKeyFactory sig2spiFactory;
+        private SigAlgAPI api;
         public SigAlgorithmInfo(String name,
 
                             ASN1ObjectIdentifier oid, // SignatureAndHashAlgorithm sigAndHash,
                             int signatureSchemeCodePoint, // int cryptoHashAlgorithmIndex,
-                            BC_ASN1_Converter converter,
-                            AsymmetricKeyInfoConverter infoToKeyConverter, SignatureSpiFromPublicKeyFactory sig2spiFactory) {
+                            SigAlgAPI api) {
             this.name = name;
             this.oid = oid;
             this.signatureSchemeCodePoint = signatureSchemeCodePoint;
             this.signatureAndHashAlgorithm = new SignatureAndHashAlgorithm((short) (signatureSchemeCodePoint >> 8), (short) (signatureSchemeCodePoint & 0xFF));
-            this.converter = converter;
-            this.infoToKeyConverter = infoToKeyConverter;
-            this.sig2spiFactory = sig2spiFactory;
+            this.api = api;
         }
 
         public String name() {
@@ -76,15 +71,16 @@ public class InjectedSigAlgorithms
     public static void injectSigAndHashAlgorithm(String name,
                                                  ASN1ObjectIdentifier oid,
                                                  int signatureSchemeCodePoint, // e.g., oqs_sphincsshake256128frobust
-                                                 BC_ASN1_Converter converter,
-                                                 AsymmetricKeyInfoConverter infoToKeyConverter,
+                                                 SigAlgAPI api,
                                                  SignatureSpiFromPublicKeyFactory sig2spi) {
-        SigAlgorithmInfo newAlg = new SigAlgorithmInfo(name, oid, signatureSchemeCodePoint,
-                converter, infoToKeyConverter, sig2spi);
+        SigAlgorithmInfo newAlg = new SigAlgorithmInfo(name, oid, signatureSchemeCodePoint, api);
         injected.add(newAlg);
         injectedSignatureSchemes.put(signatureSchemeCodePoint, newAlg);
         injectedOids.put(oid.toString(), newAlg);
         InjectedSignatureSpiFactories.registerFactory(sig2spi);
+        InjectedSigners.injectSigner(name, api::sign);
+        InjectedSigVerifiers.injectVerifier(signatureSchemeCodePoint, api::verifySignature);
+
     }
 
     public static Collection<? extends SignatureAndHashAlgorithm> getInjectedSigAndHashAlgorithms() {
@@ -115,7 +111,7 @@ public class InjectedSigAlgorithms
 
     public static boolean isParameterSupported(AsymmetricKeyParameter param) {
         for (SigAlgorithmInfo sig : injectedSignatureSchemes.values()) {
-            if (sig.converter.isSupportedParameter(param))
+            if (sig.api.isSupportedParameter(param))
                 return true;
         }
         return false;
@@ -125,13 +121,13 @@ public class InjectedSigAlgorithms
         AlgorithmIdentifier algId = keyInfo.getPrivateKeyAlgorithm();
         ASN1ObjectIdentifier algOID = algId.getAlgorithm();
         String algKey = algOID.toString();
-        return injectedOids.get(algKey).converter.createPrivateKeyParameter(keyInfo);
+        return injectedOids.get(algKey).api.createPrivateKeyParameter(keyInfo);
     }
 
     public static PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter param, ASN1Set attributes) throws IOException {
         for (SigAlgorithmInfo sig : injectedSignatureSchemes.values()) {
-            if (sig.converter.isSupportedParameter(param))
-                return sig.converter.createPrivateKeyInfo(param, attributes);
+            if (sig.api.isSupportedParameter(param))
+                return sig.api.createPrivateKeyInfo(param, attributes);
         }
         throw new RuntimeException("Unsupported private key params were given");
     }
@@ -141,13 +137,13 @@ public class InjectedSigAlgorithms
         AlgorithmIdentifier algId = keyInfo.getAlgorithm();
         ASN1ObjectIdentifier algOID = algId.getAlgorithm();
         String algKey = algOID.toString();
-        return injectedOids.get(algKey).converter.createPublicKeyParameter(keyInfo, defaultParams);
+        return injectedOids.get(algKey).api.createPublicKeyParameter(keyInfo, defaultParams);
     }
     public static SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey) throws IOException {
         // Lightweight BC public key params => ASN.1
         for (SigAlgorithmInfo sig : injectedSignatureSchemes.values()) {
-            if (sig.converter.isSupportedParameter(publicKey))
-                return sig.converter.createSubjectPublicKeyInfo(publicKey);
+            if (sig.api.isSupportedParameter(publicKey))
+                return sig.api.createSubjectPublicKeyInfo(publicKey);
         }
         throw new RuntimeException("Unsupported public key params were given");
     }
@@ -183,9 +179,9 @@ public class InjectedSigAlgorithms
             provider.addAlgorithm("Alg.Alias.Signature." + info.oid, info.name);
             provider.addAlgorithm("Alg.Alias.Signature.OID." + info.oid, info.name);
 
-            registerOid(provider, info.oid, info.name, info.infoToKeyConverter);;
+            registerOid(provider, info.oid, info.name, info.api);;
             registerOidAlgorithmParameters(provider, info.oid, info.name);
-            provider.addKeyInfoConverter(info.oid, info.infoToKeyConverter);
+            provider.addKeyInfoConverter(info.oid, info.api);
         }
     }
 
