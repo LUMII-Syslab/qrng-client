@@ -2,6 +2,8 @@ package org.bouncycastle.tls.injection.signaturespi;
 
 
 
+import org.bouncycastle.tls.injection.sigalgs.MyTlsVerifier;
+
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.PublicKey;
@@ -35,6 +37,11 @@ public class InjectedSignatureSpiFactories {
         }
 
         return result;
+    }
+
+    public static MyTlsVerifier createVerifier(PublicKey key) throws InvalidKeyException {
+        SignatureSpi spi = createSignatureSpi(key);
+        return new MyTlsVerifier(key, spi);
     }
 
 }

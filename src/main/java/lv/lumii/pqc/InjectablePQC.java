@@ -4,6 +4,7 @@ import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.RSAPublicKeyStructure;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.crypto.*;
 import org.bouncycastle.crypto.digests.NullDigest;
@@ -366,24 +367,44 @@ public class InjectablePQC {
             public boolean verifySignature(byte[] message, byte[] publicKey, DigitallySigned signature) {
 
 
+                System.out.println("RSA PUB KEY");
+                System.out.println(byteArrayToString(publicKey, " "));
 
-                publicKey = Arrays.copyOfRange(publicKey, 4, publicKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
-                //int sphincsPlusParams = Pack.bigEndianToInt(publicKey, 0);
+                ASN1Sequence seq = ASN1Sequence.getInstance(publicKey);
 
-                // BouncyCastle verifier
+                ASN1BitString bitStr = (ASN1BitString) seq.getObjectAt(1);
+                ASN1Sequence seq2 = ASN1Sequence.getInstance(bitStr.getOctets());
 
-                SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
+                ASN1Integer modulus = (ASN1Integer) seq2.getObjectAt(0).toASN1Primitive();
+                ASN1Integer publicExponent = (ASN1Integer) seq2.getObjectAt(1).toASN1Primitive();
 
-                SPHINCSPlusPublicKeyParameters params = new SPHINCSPlusPublicKeyParameters(
-                        sphincsPlusParameters, publicKey);
-                signer.init(false, params);
-                boolean b = signer.verifySignature(message, signature.getSignature());
+                RSAKeyParameters rsaPk = new RSAKeyParameters(false, modulus.getValue(), publicExponent.getValue());
+
+                Digest digest = new SHA256Digest();
+
+                /*
+                Signature signer;
+                try {
+                    signer = Signature.getInstance("SHA256withRSA");
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                signer.initSign(RSAPrivateKey.getInstance(seq));*/
+
+                PSSSigner signer = new PSSSigner(new RSAEngine(), digest, 32);
+
+                signer.init(false, rsaPk);
+
+                // Update the signer with the data to be signed
+                signer.update(message, 0, message.length);
+
+                boolean b = signer.verifySignature(signature.getSignature());
                 return b;
             }
         };
 
         SignatureSpiFromPublicOrPrivateKeyFactory rsa_factory = (Key key) -> {
-            System.out.println("RSA KEY GIVEN  "+key.getClass().getName());
+            System.out.println("RSA KEY GIVEN (RSA SERVER)  "+key.getClass().getName());
 
             if (!(key instanceof RSAPublicKey || key instanceof RSAPrivateCrtKey)) {
                 throw new RuntimeException("Only RSA is supported in this implementation of InjectedSignatureSpi.Factory");
@@ -404,19 +425,38 @@ public class InjectablePQC {
                     return new RSAKeyParameters(true, rsaSk.getModulus(), rsaSk.getPrivateExponent());
                 };
 
-                return new  PSSSignatureSpi.SHA256withRSA();
+                //return new  PSSSignatureSpi.SHA256withRSA();
 
-                /*
+
                 return new UniversalSignatureSpi(new NullDigest(),
                         new MyMessageSigner(
-                                sigCodePoint,
-                                (data, key1) -> rsa_api.sign(data, key1),
+                                0x0804,
+                                (crypto, data, key1) -> rsa_api.sign(crypto, data, key1),
                                 (message, pk, signature) -> rsa_api.verifySignature(message, pk, signature),
                                 (params) -> {
                                     assert params instanceof RSAKeyParameters;
                                     RSAKeyParameters pkParams = (RSAKeyParameters) params;
-                                    //return pkParams.getEncoded();
-                                    return new byte[] {};
+
+                                    RSAPublicKeyStructure rsaPublicKey = new RSAPublicKeyStructure(
+                                            pkParams.getModulus(),
+                                            pkParams.getExponent()
+                                    );
+
+                                    // Create an AlgorithmIdentifier for RSA
+                                    AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(
+                                            new ASN1ObjectIdentifier("1.2.840.113549.1.1.1")
+                                    );
+
+                                    // Create a SubjectPublicKeyInfo
+                                    try {
+                                        SubjectPublicKeyInfo subjectPublicKeyInfo = new SubjectPublicKeyInfo(
+                                                algorithmIdentifier,
+                                                rsaPublicKey.toASN1Primitive()
+                                        );
+                                        return subjectPublicKeyInfo.getEncoded();
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
                                 },
                                 (params) -> {
                                     assert params instanceof RSAKeyParameters;
@@ -424,7 +464,7 @@ public class InjectablePQC {
                                     //return pkParams.getEncoded();
                                     return new byte[] {}; // TODO: CipherParameters as wrapper
                                 }),
-                        f1, f2);*/
+                        f1, f2);
 
         };
 
@@ -433,13 +473,15 @@ public class InjectablePQC {
 //        ASN1ObjectIdentifier rsa_oid2 = new ASN1ObjectIdentifier("1.2.840.113549.1.1.8");
   //      System.out.println("RSA OID2: "+rsa_oid2);
 
-        /*InjectedSigAlgorithms.injectSigAndHashAlgorithm(
+        // needed for verification of the server certificate
+        InjectedSigAlgorithms.injectSigAndHashAlgorithm(
                 "SHA256WITHRSAANDMGF1", //"RSA",
-                rsa_oid2,
-                0x0809, // from: https://www.ietf.org/rfc/rfc8446.html   //2057
+                rsa_oid1,
+                0x0804,
+                //0x0809, // from: https://www.ietf.org/rfc/rfc8446.html   //2057
                 rsa_api,
                 rsa_factory
-        );*/
+        );
 
 
         InjectedSigAlgorithms.injectSigAndHashAlgorithm(

@@ -54,6 +54,7 @@ import org.bouncycastle.tls.crypto.impl.jcajce.srp.SRP6Server;
 import org.bouncycastle.tls.crypto.impl.jcajce.srp.SRP6VerifierGenerator;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.bouncycastle.tls.injection.sigalgs.InjectedSigAlgorithms;
+import org.bouncycastle.tls.injection.signaturespi.InjectedSignatureSpiFactories;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
 
@@ -990,6 +991,15 @@ public class JcaTlsCrypto
                 Signature dummyVerifier = helper.createSignature(algorithmName);
                 dummyVerifier.initVerify(publicKey);
                 helper = new ProviderJcaJceHelper(dummyVerifier.getProvider());
+            }
+
+            // #pqc-tls #injection
+            // try injected verifier...
+            try {
+                return InjectedSignatureSpiFactories.createVerifier(publicKey);
+            }
+            catch (Exception e) {
+                //e.printStackTrace(); // e.g., not injected, continue as usual
             }
 
             Signature verifier = helper.createSignature(algorithmName);

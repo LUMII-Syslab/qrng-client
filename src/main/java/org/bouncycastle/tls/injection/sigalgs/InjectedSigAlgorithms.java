@@ -161,8 +161,13 @@ public class InjectedSigAlgorithms
 
         @Override
         public void configure(ConfigurableProvider provider) {
-            provider.addAlgorithm("Alg.Alias.Signature."+info.oid, info.name);
-            provider.addAlgorithm("Alg.Alias.Signature.OID."+info.oid, info.name);
+            try {
+                provider.addAlgorithm("Alg.Alias.Signature." + info.oid, info.name);
+                provider.addAlgorithm("Alg.Alias.Signature.OID."+info.oid, info.name);
+            }
+            catch (IllegalStateException e){
+                // ignore, if duplicate (needed for injected RSA)
+            }
 
             // remove previous values in order to avoid the duplicate key exception
             if (provider instanceof java.security.Provider) {
@@ -176,8 +181,14 @@ public class InjectedSigAlgorithms
             provider.addAlgorithm("Alg.Alias.Signature." + info.oid, info.name);
             provider.addAlgorithm("Alg.Alias.Signature.OID." + info.oid, info.name);
 
-            registerOid(provider, info.oid, info.name, info.api);;
-            registerOidAlgorithmParameters(provider, info.oid, info.name);
+
+            try {
+                registerOid(provider, info.oid, info.name, info.api);;
+                registerOidAlgorithmParameters(provider, info.oid, info.name);
+            }
+            catch (IllegalStateException e){
+                // ignore, if duplicate (needed for injected RSA)
+            }
             provider.addKeyInfoConverter(info.oid, info.api);
         }
     }
