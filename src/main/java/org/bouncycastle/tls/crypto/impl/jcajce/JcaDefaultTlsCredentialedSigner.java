@@ -34,6 +34,12 @@ public class JcaDefaultTlsCredentialedSigner
 
         TlsSigner signer;
 
+
+        if (InjectedSigners.isAlgorithmSupported(algorithm)) { // #pqc-tls #injection
+            signer = InjectedSigners.makeSigner(crypto, privateKey);
+            return signer;
+        }
+
         // TODO We probably want better distinction b/w the rsa_pss_pss and rsa_pss_rsae cases here
         if (privateKey instanceof RSAPrivateKey
             || "RSA".equalsIgnoreCase(algorithm)
@@ -85,9 +91,6 @@ public class JcaDefaultTlsCredentialedSigner
         else if ("Ed448".equalsIgnoreCase(algorithm))
         {
             signer = new JcaTlsEd448Signer(crypto, privateKey);
-        }
-        else if (InjectedSigners.isAlgorithmSupported(algorithm)) { // #pqc-tls #injection
-            signer = InjectedSigners.makeSigner(crypto, privateKey);
         }
         else
         {
