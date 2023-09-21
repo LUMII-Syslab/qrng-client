@@ -7,12 +7,9 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
 import org.bouncycastle.jcajce.provider.util.AsymmetricAlgorithmProvider;
-import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
 import org.bouncycastle.tls.SignatureAndHashAlgorithm;
-import org.bouncycastle.tls.injection.keys.BC_ASN1_Converter;
-import org.bouncycastle.tls.injection.signaturespi.DirectSignatureSpi;
 import org.bouncycastle.tls.injection.signaturespi.InjectedSignatureSpiFactories;
-import org.bouncycastle.tls.injection.signaturespi.SignatureSpiFromPublicKeyFactory;
+import org.bouncycastle.tls.injection.signaturespi.SignatureSpiFromPublicOrPrivateKeyFactory;
 
 import java.io.IOException;
 import java.util.*;
@@ -72,7 +69,7 @@ public class InjectedSigAlgorithms
                                                  ASN1ObjectIdentifier oid,
                                                  int signatureSchemeCodePoint, // e.g., oqs_sphincsshake256128frobust
                                                  SigAlgAPI api,
-                                                 SignatureSpiFromPublicKeyFactory sig2spi) {
+                                                 SignatureSpiFromPublicOrPrivateKeyFactory sig2spi) {
         SigAlgorithmInfo newAlg = new SigAlgorithmInfo(name, oid, signatureSchemeCodePoint, api);
         injected.add(newAlg);
         injectedSignatureSchemes.put(signatureSchemeCodePoint, newAlg);

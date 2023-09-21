@@ -3,26 +3,27 @@ package org.bouncycastle.tls.injection.signaturespi;
 
 
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.PublicKey;
 import java.security.SignatureSpi;
 import java.util.Vector;
 
 public class InjectedSignatureSpiFactories {
 
-    private static Vector<SignatureSpiFromPublicKeyFactory> factories = new Vector<>();
+    private static Vector<SignatureSpiFromPublicOrPrivateKeyFactory> factories = new Vector<>();
 
-    public static void registerFactory(SignatureSpiFromPublicKeyFactory factory) {
+    public static void registerFactory(SignatureSpiFromPublicOrPrivateKeyFactory factory) {
         factories.add(factory);
     }
 
-    public static SignatureSpi createSignatureSpi(PublicKey publicKey) throws InvalidKeyException {
+    public static SignatureSpi createSignatureSpi(Key publicOrPrivateKey) throws InvalidKeyException {
         SignatureSpi result = null;
-        for (SignatureSpiFromPublicKeyFactory f : factories) {
+        for (SignatureSpiFromPublicOrPrivateKeyFactory f : factories) {
             try {
-                result = f.newInstance(publicKey);
+                result = f.newInstance(publicOrPrivateKey);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                //e.printStackTrace();
                 // SignatureSpi could not been created with this factory, continue with the next one
             }
             if (result != null)
@@ -30,7 +31,7 @@ public class InjectedSignatureSpiFactories {
         }
 
         if (result == null) {
-            throw new InvalidKeyException("No known SignatureSpi for the passed public key of type "+publicKey.getClass().getName());
+            throw new InvalidKeyException("No known SignatureSpi for the passed public key of type "+publicOrPrivateKey.getClass().getName());
         }
 
         return result;

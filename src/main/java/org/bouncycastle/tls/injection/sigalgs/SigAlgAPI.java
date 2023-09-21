@@ -7,6 +7,7 @@ import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
 import org.bouncycastle.tls.DigitallySigned;
 import org.bouncycastle.tls.SignatureAndHashAlgorithm;
+import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 
 import java.io.IOException;
 import java.security.PrivateKey;
@@ -75,7 +76,7 @@ public interface SigAlgAPI extends AsymmetricKeyInfoConverter { //extends BC_ASN
             throws IOException;
 
     ///// sign & verify /////
-    byte[] sign(byte[] message, byte[] privateKey)
+    byte[] sign(JcaTlsCrypto crypto, byte[] message, byte[] privateKey)
             throws IOException;
 
     boolean verifySignature(byte[] message, byte[] publicKey, DigitallySigned signature);

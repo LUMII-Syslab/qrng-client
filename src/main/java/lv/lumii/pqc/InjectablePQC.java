@@ -1,17 +1,23 @@
 package lv.lumii.pqc;
 
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
-import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.SecretWithEncapsulation;
+import org.bouncycastle.crypto.*;
 import org.bouncycastle.crypto.digests.NullDigest;
+import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.digests.SHA3Digest;
+import org.bouncycastle.crypto.engines.RSAEngine;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
+import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.crypto.params.RSAKeyParameters;
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.crypto.signers.PSSSigner;
+import org.bouncycastle.crypto.signers.RSADigestSigner;
+import org.bouncycastle.jcajce.provider.asymmetric.RSA;
+import org.bouncycastle.jcajce.provider.asymmetric.rsa.PSSSignatureSpi;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.bouncycastle.pqc.crypto.frodo.*;
 import org.bouncycastle.pqc.crypto.sphincsplus.*;
@@ -19,24 +25,27 @@ import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPrivateKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SPHINCSPlusKeyFactorySpi;
+import org.bouncycastle.pqc.jcajce.provider.sphincsplus.SignatureSpi;
 import org.bouncycastle.tls.DigitallySigned;
 import org.bouncycastle.tls.SignatureAndHashAlgorithm;
 import org.bouncycastle.tls.crypto.TlsSigner;
 import org.bouncycastle.tls.crypto.TlsStreamSigner;
+import org.bouncycastle.tls.crypto.impl.bc.BcTlsRSAPSSSigner;
 import org.bouncycastle.tls.crypto.impl.jcajce.JcaTlsCrypto;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.bouncycastle.tls.injection.kems.KEM;
 import org.bouncycastle.tls.injection.sigalgs.*;
+import org.bouncycastle.tls.injection.signaturespi.SignatureSpiFromPublicOrPrivateKeyFactory;
 import org.bouncycastle.tls.injection.signaturespi.UniversalSignatureSpi;
 import org.bouncycastle.util.Pack;
 import org.openquantumsafe.KeyEncapsulation;
 import org.openquantumsafe.Pair;
 
 import java.io.IOException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.Security;
+import java.security.*;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 
 /**
@@ -103,6 +112,8 @@ public class InjectablePQC {
         // ^^^ see: https://github.com/sphincs/sphincsplus
 
         InjectedKEMs.injectionOrder = injectionOrder;
+
+
 
         SigAlgAPI api = new SigAlgAPI() {
             @Override
@@ -177,7 +188,7 @@ public class InjectablePQC {
             }
 
             @Override
-            public byte[] sign(byte[] message, byte[] privateKey) throws IOException {
+            public byte[] sign(JcaTlsCrypto crypto, byte[] message, byte[] privateKey) throws IOException {
                 SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
 
                 privateKey = Arrays.copyOfRange(privateKey, 4, privateKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
@@ -214,15 +225,15 @@ public class InjectablePQC {
                 sigOid,
                 sigCodePoint,
                 api,
-                (PublicKey publicKey) -> {
-                    if (publicKey instanceof BCSPHINCSPlusPublicKey) {
+                (Key publicOrPrivateKey) -> {
+                    if (publicOrPrivateKey instanceof BCSPHINCSPlusPublicKey) {
                         PublicKeyToCipherParameters f1 = (pk) -> ((BCSPHINCSPlusPublicKey) pk).getKeyParams();
                         PrivateKeyToCipherParameters f2 = (sk) -> ((BCSPHINCSPlusPrivateKey) sk).getKeyParams();
 
                         return new UniversalSignatureSpi(new NullDigest(),
                                 new MyMessageSigner(
                                         sigCodePoint,
-                                        (data, key) -> api.sign(data, key),
+                                        (crypto, data, key) -> api.sign(crypto, data, key),
                                         (message, pk, signature) -> api.verifySignature(message, pk, signature),
                                         (params) -> {
                                             assert params instanceof SPHINCSPlusPublicKeyParameters;
@@ -238,9 +249,208 @@ public class InjectablePQC {
                                 f1, f2);
                         //return new SphincsPlusSignatureSpi();
                     } else
-                        throw new RuntimeException("Only SPHINCS+ is supported in this implementation of InjectedSignatureSpi.Factory");
+                        throw new RuntimeException("Only  SPHINCS+ is supported in this implementation of InjectedSignatureSpi.Factory");
                 }
         );
+
+        SigAlgAPI rsa_api = new SigAlgAPI() {
+            @Override
+            public boolean isSupportedParameter(AsymmetricKeyParameter someKey) {
+                System.out.println(someKey.getClass().getName());
+                return true;
+            }
+
+            @Override
+            public AsymmetricKeyParameter createPrivateKeyParameter(PrivateKeyInfo keyInfo) throws IOException {
+                System.out.println(keyInfo.getClass().getName());
+                return null;
+            }
+
+            @Override
+            public PrivateKeyInfo createPrivateKeyInfo(AsymmetricKeyParameter privateKey, ASN1Set attributes) throws IOException {
+                System.out.println(privateKey.getClass().getName());
+                return null;
+
+            /*    byte[] encoding = params.getEncoded(); // ££££
+                byte[] pubEncoding = params.getEncodedPublicKey();
+
+                // remove alg params (4 bytes)
+                encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+                pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length);
+
+                AlgorithmIdentifier algorithmIdentifier =
+                        new AlgorithmIdentifier(sigOid);
+                //new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters()));  // by SK: here BC gets its algID!!!  @@@ @@@
+                return new PrivateKeyInfo(algorithmIdentifier, new DEROctetString(encoding), attributes, pubEncoding);*/
+            }
+
+            @Override
+            public AsymmetricKeyParameter createPublicKeyParameter(SubjectPublicKeyInfo keyInfo, Object defaultParams) throws IOException {
+                byte[] wrapped = keyInfo.getEncoded(); // ASN1 wrapped
+                SubjectPublicKeyInfo info = SubjectPublicKeyInfo.getInstance(wrapped);
+                byte[] keyEnc = info.getPublicKeyData().getBytes();
+                //byte[] keyEnc = Arrays.copyOfRange(wrapped, wrapped.length - sphincsPlusPKLength, wrapped.length);
+                AlgorithmIdentifier alg = keyInfo.getAlgorithm();
+                ASN1ObjectIdentifier oid = alg.getAlgorithm();
+                int i = sphincsPlusParametersAsInt; // TODO: get i from associated oid
+                SPHINCSPlusParameters spParams = SPHINCSPlusParameters.getParams(i);
+                return new SPHINCSPlusPublicKeyParameters(spParams, keyEnc);
+            }
+
+            @Override
+            public SubjectPublicKeyInfo createSubjectPublicKeyInfo(AsymmetricKeyParameter publicKey) throws IOException {
+                SPHINCSPlusPublicKeyParameters params = (SPHINCSPlusPublicKeyParameters) publicKey;
+
+                byte[] encoding = params.getEncoded();
+
+                // remove the first 4 bytes (alg. params)
+                encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
+
+                AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(sigOid);//??? -- does not matter
+                // new AlgorithmIdentifier(Utils.sphincsPlusOidLookup(params.getParameters())); // by SK: here BC gets its algID!!!
+                return new SubjectPublicKeyInfo(algorithmIdentifier, new DEROctetString(encoding));
+            }
+
+            @Override
+            public PrivateKey generatePrivate(PrivateKeyInfo keyInfo) throws IOException {
+                return new SPHINCSPlusKeyFactorySpi().generatePrivate(keyInfo);
+            }
+
+            @Override
+            public PublicKey generatePublic(SubjectPublicKeyInfo keyInfo) throws IOException {
+                return new SPHINCSPlusKeyFactorySpi().generatePublic(keyInfo);
+            }
+
+            @Override
+            public byte[] sign(JcaTlsCrypto crypto, byte[] message, byte[] privateKey) throws IOException {
+                System.out.println("message length "+message.length);
+                System.out.println(byteArrayToString(privateKey, " "));
+
+                ASN1OctetString octetString = ASN1OctetString.getInstance(privateKey);
+                ASN1Sequence seq = ASN1Sequence.getInstance(octetString.getOctets());
+                ASN1Integer modulus = (ASN1Integer) seq.getObjectAt(1).toASN1Primitive();
+                ASN1Integer privateExponent = (ASN1Integer) seq.getObjectAt(3).toASN1Primitive();
+
+                RSAKeyParameters rsaSk = new RSAKeyParameters(true, modulus.getValue(), privateExponent.getValue());
+
+                Digest digest = new SHA256Digest();
+
+                /*
+                Signature signer;
+                try {
+                    signer = Signature.getInstance("SHA256withRSA");
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                signer.initSign(RSAPrivateKey.getInstance(seq));*/
+
+                PSSSigner signer = new PSSSigner(new RSAEngine(), digest, 32);
+
+                //RSADigestSigner signer = new RSADigestSigner(digest);
+                signer.init(true, new ParametersWithRandom(rsaSk, crypto.getSecureRandom()));
+
+                // Update the signer with the data to be signed
+                signer.update(message, 0, message.length);
+
+                // Generate the RSA signature
+                try {
+                    byte[] signatureBytes = signer.generateSignature();
+                    return signatureBytes;
+                } catch (CryptoException e) {
+                    throw new RuntimeException(e);
+                }
+
+            }
+
+            @Override
+            public boolean verifySignature(byte[] message, byte[] publicKey, DigitallySigned signature) {
+
+
+
+                publicKey = Arrays.copyOfRange(publicKey, 4, publicKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
+                //int sphincsPlusParams = Pack.bigEndianToInt(publicKey, 0);
+
+                // BouncyCastle verifier
+
+                SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
+
+                SPHINCSPlusPublicKeyParameters params = new SPHINCSPlusPublicKeyParameters(
+                        sphincsPlusParameters, publicKey);
+                signer.init(false, params);
+                boolean b = signer.verifySignature(message, signature.getSignature());
+                return b;
+            }
+        };
+
+        SignatureSpiFromPublicOrPrivateKeyFactory rsa_factory = (Key key) -> {
+            System.out.println("RSA KEY GIVEN  "+key.getClass().getName());
+
+            if (!(key instanceof RSAPublicKey || key instanceof RSAPrivateCrtKey)) {
+                throw new RuntimeException("Only RSA is supported in this implementation of InjectedSignatureSpi.Factory");
+
+            }
+
+            //return new PSSSignatureSpi.SHA256withRSA();
+                PublicKeyToCipherParameters f1 = (pk) -> {
+                    RSAPublicKey rsaPk = (RSAPublicKey)pk;
+
+                    // converting built-in AlgorithmParameterSpec to CipherParameters
+                    return new RSAKeyParameters(false, rsaPk.getModulus(), rsaPk.getPublicExponent());
+                };
+                PrivateKeyToCipherParameters f2 = (sk) -> {
+                    RSAPrivateCrtKey rsaSk = (RSAPrivateCrtKey)sk;
+
+                    // converting built-in AlgorithmParameterSpec to CipherParameters
+                    return new RSAKeyParameters(true, rsaSk.getModulus(), rsaSk.getPrivateExponent());
+                };
+
+                return new  PSSSignatureSpi.SHA256withRSA();
+
+                /*
+                return new UniversalSignatureSpi(new NullDigest(),
+                        new MyMessageSigner(
+                                sigCodePoint,
+                                (data, key1) -> rsa_api.sign(data, key1),
+                                (message, pk, signature) -> rsa_api.verifySignature(message, pk, signature),
+                                (params) -> {
+                                    assert params instanceof RSAKeyParameters;
+                                    RSAKeyParameters pkParams = (RSAKeyParameters) params;
+                                    //return pkParams.getEncoded();
+                                    return new byte[] {};
+                                },
+                                (params) -> {
+                                    assert params instanceof RSAKeyParameters;
+                                    RSAKeyParameters skParams = (RSAKeyParameters) params;
+                                    //return pkParams.getEncoded();
+                                    return new byte[] {}; // TODO: CipherParameters as wrapper
+                                }),
+                        f1, f2);*/
+
+        };
+
+        ASN1ObjectIdentifier rsa_oid1 = new org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder().find("SHA256WITHRSA").getAlgorithm();
+        System.out.println("RSA OID1 : "+rsa_oid1);
+//        ASN1ObjectIdentifier rsa_oid2 = new ASN1ObjectIdentifier("1.2.840.113549.1.1.8");
+  //      System.out.println("RSA OID2: "+rsa_oid2);
+
+        /*InjectedSigAlgorithms.injectSigAndHashAlgorithm(
+                "SHA256WITHRSAANDMGF1", //"RSA",
+                rsa_oid2,
+                0x0809, // from: https://www.ietf.org/rfc/rfc8446.html   //2057
+                rsa_api,
+                rsa_factory
+        );*/
+
+
+        InjectedSigAlgorithms.injectSigAndHashAlgorithm(
+                "RSA", //"RSA",
+                rsa_oid1,
+                0x0804, //2052
+                //0x0809, // from: https://www.ietf.org/rfc/rfc8446.html   //2057
+                rsa_api,
+                rsa_factory
+        );
+
         /*
         InjectedSigners.injectSigner("SPHINCS+", (JcaTlsCrypto crypto, PrivateKey privateKey) -> {
             assert (privateKey instanceof BCSPHINCSPlusPrivateKey);

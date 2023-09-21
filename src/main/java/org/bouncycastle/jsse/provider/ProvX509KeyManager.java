@@ -172,8 +172,10 @@ class ProvX509KeyManager
         addFilter(filters, ECPublicKey.class, "EC");
 
         // adding filters for injected signers (e.g., PQC signers) #pqc-tls #injection
-        for (String name: InjectedSigners.getInjectedSignerNames())
-            addFilter(filters, name);
+        for (String name: InjectedSigners.getInjectedSignerNames()) {
+            if (!filters.containsKey(name))
+                addFilter(filters, name);
+        }
 
         return Collections.unmodifiableMap(filters);
     }
@@ -204,8 +206,10 @@ class ProvX509KeyManager
         addFilterLegacyServer(filters, ProvAlgorithmChecker.KU_KEY_ENCIPHERMENT, "RSA", KeyExchangeAlgorithm.RSA);
 
         // adding filters for injected signers (e.g., PQC signers) #pqc-tls #injection
-        for (String name: InjectedSigners.getInjectedSignerNames())
-            addFilter(filters, name);
+        for (String name: InjectedSigners.getInjectedSignerNames()) {
+            if (!filters.containsKey(name))
+                addFilter(filters, name);
+        }
 
         return Collections.unmodifiableMap(filters);
     }

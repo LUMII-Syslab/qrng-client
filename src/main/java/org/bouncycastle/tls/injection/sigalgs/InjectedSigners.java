@@ -61,7 +61,7 @@ public class InjectedSigners // TODO: => Factory
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            return new MyTlsSigner(sk2, (SignerFunction) fn);
+            return new MyTlsSigner(crypto, sk2, (SignerFunction) fn);
         }
         throw new RuntimeException("Could not create a signer for algorithm "+algorithm);
     }

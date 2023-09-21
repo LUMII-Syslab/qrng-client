@@ -69,7 +69,7 @@ class ProvSSLSessionHandshake
         ArrayList<String> r = new ArrayList<>();
         for (String s: result)
             r.add(s);
-        r.add("SPHINCS+");
+        r.add("SPHINCS+"); //?? by SK
         return r.toArray(new String[] {});
     }
 

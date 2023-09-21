@@ -54,7 +54,7 @@ public class MyMessageSigner implements MessageSigner {
 
         byte[] bcSignature = new byte[0];
         try {
-            bcSignature = fnSign.sign(message, sk);
+            bcSignature = fnSign.sign(null, message, sk); // ?? crypto!!!
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

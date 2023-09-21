@@ -1,6 +1,6 @@
 package org.bouncycastle.tls.injection.signaturespi;
 
-import java.security.PublicKey;
+import java.security.Key;
 import java.security.SignatureSpi;
 
 /**
@@ -12,6 +12,6 @@ import java.security.SignatureSpi;
  *
  * @author Sergejs Kozlovics
  */
-public interface SignatureSpiFromPublicKeyFactory {
-    SignatureSpi newInstance(PublicKey publicKey);
+public interface SignatureSpiFromPublicOrPrivateKeyFactory {
+    SignatureSpi newInstance(Key key);
 }
