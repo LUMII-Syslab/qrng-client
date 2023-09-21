@@ -68,6 +68,8 @@ public class DirectSignatureSpi extends java.security.SignatureSpi
 
     @Override
     protected void engineInitSign(PrivateKey privateKey) throws InvalidKeyException {
+        delegate = InjectedSignatureSpiFactories.createSignatureSpi(privateKey);
+
         Class c = delegate.getClass(); // searching for the method in the class or in base classes
         Method m = findDirectOrInheritedMethod(c, "engineInitSign", PrivateKey.class);
         if (m==null)
