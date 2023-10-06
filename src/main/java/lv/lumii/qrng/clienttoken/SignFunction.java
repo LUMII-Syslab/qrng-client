@@ -1,4 +1,4 @@
-package lv.lumii.qrng.token;
+package lv.lumii.qrng.clienttoken;
 
 public interface SignFunction {
     byte[] sign(byte[] message);

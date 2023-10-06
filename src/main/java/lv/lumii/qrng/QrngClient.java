@@ -1,25 +1,25 @@
 package lv.lumii.qrng;
 
-import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-
 import lv.lumii.pqc.InjectablePQC;
 import org.bouncycastle.tls.injection.kems.InjectedKEMs;
-import org.graalvm.word.WordFactory;
-import org.slf4j.*;
-
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.UnmanagedMemory;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.c.struct.SizeOf;
 import org.graalvm.nativeimage.c.type.CCharPointer;
+import org.graalvm.word.WordFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class QrngClient {
 
@@ -36,13 +36,45 @@ public class QrngClient {
     static {
 
         try {
-             NULL_BUFFER = WordFactory.nullPointer(); // used from GraalVM native image
-        }
-        catch (Exception e) {
+            NULL_BUFFER = WordFactory.nullPointer(); // used from GraalVM native image
+        } catch (Exception e) {
             NULL_BUFFER = null; // used from Java mode of GraalVM
         }
 
-        InjectablePQC.inject(InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT);
+
+        File f = new File(QrngClient.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        mainExecutable = f.getAbsolutePath();
+        mainDirectory = f.getParent();
+
+        // Fix for debug purposes when qrng-client is launched from the IDE:
+        if (mainExecutable.replace('\\', '/').endsWith("/build/classes/java/main")) {
+            mainDirectory = mainExecutable.substring(0, mainExecutable.length() - "/build/classes/java/main".length());
+            mainExecutable = "java";
+        }
+
+
+        String logFileName = mainDirectory + File.separator + "qrng.log";
+        System.setProperty("org.slf4j.simpleLogger.logFile", logFileName);
+        logger = LoggerFactory.getLogger(QrngClient.class);
+
+        HashMap<String, ClientTokenFactory> tokenFactories = new HashMap<>();
+
+        // Trying to collect some additional client token factories...
+        try {
+            Class<?> c = Class.forName("lv.lumii.smartcard.SmartCardClientTokenFactory");
+            ClientTokenFactory sctFactory = (ClientTokenFactory) c.getConstructor().newInstance();
+            tokenFactories.put("smartcard", sctFactory);
+            logger.info("Client token factory 'smartcard' installed.");
+        } catch (Exception e) {
+            logger.info("Not using 'smartcard' client token factory since it is not installed.");
+        }
+
+        qrngProperties = new QrngProperties(mainDirectory, tokenFactories);
+
+        if (qrngProperties.pqcKemRequired())
+            InjectablePQC.inject(InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT, () -> qrngProperties.clientToken());
+        else
+            InjectablePQC.inject(InjectedKEMs.InjectionOrder.AFTER_DEFAULT, () -> qrngProperties.clientToken());
 
         /*
         do not use log4j2 in native executables/libraries!!!
@@ -53,29 +85,9 @@ public class QrngClient {
             implementation 'org.slf4j:slf4j-simple:2.+'
          */
 
-        File f = new File(QrngClient.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-        mainExecutable = f.getAbsolutePath();
-        mainDirectory = f.getParent();
-
-        // Fix for debug purposes when qrng-client is launched from the IDE:
-        if (mainExecutable.replace('\\', '/').endsWith("/build/classes/java/main")) {
-            mainDirectory = mainExecutable.substring(0, mainExecutable.length()-"/build/classes/java/main".length());
-            mainExecutable = "java";
-        }
-        String logFileName = mainDirectory+File.separator+"qrng.log";
-        System.setProperty("org.slf4j.simpleLogger.logFile", logFileName);
-        logger = LoggerFactory.getLogger(QrngClient.class);
-
-        qrngProperties = new QrngProperties(mainDirectory);
         clientBuffer = new ClientBuffer(qrngProperties.clientBufferSize());
 
         qrngServer = new QrngServer(qrngProperties, clientBuffer);
-
-        try {
-            qrngProperties.clientToken().certificateChain();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
 
         Provider tlsProvider = null;
         try {
@@ -83,18 +95,7 @@ public class QrngClient {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        logger.debug("Using TLS provider: "+tlsProvider.getName()); // BCJSSE
-
-        //System.load("/Users/sergejs/.sdkman/candidates/java/current/lib/libosxsecurity.dylib");
-        //System.load("/Users/sergejs/graalvm-ce-java17-22.3.0/Contents/Home/lib/libosxsecurity.dylib");
-        //System.loadLibrary("osxsecurity");
-
-
-        /*BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
-        Security.insertProviderAt(jsseProvider, 1);
-
-        BouncyCastlePQCProvider bcProvider = new BouncyCastlePQCProvider(); // BCPQC
-        Security.insertProviderAt(bcProvider, 1);*/
+        logger.debug("Using TLS provider: " + tlsProvider.getName()); // BCJSSE
     }
 
 
@@ -110,30 +111,29 @@ public class QrngClient {
             logger.debug("java.library.path=" + System.getProperty("java.library.path"));
             qrngServer.ensureReplenishing(0);
             return NULL_BUFFER;
-        }
-        catch(Exception e) {
-            return toCCharPointer("{\"error\":\"Could not connect to the QRNG server: "+e.getMessage()+"\"}");
+        } catch (Exception e) {
+            return toCCharPointer("{\"error\":\"Could not connect to the QRNG server: " + e.getMessage() + "\"}");
         }
     }
 
     @CEntryPoint(name = "qrng_get_random_bytes")
     public static synchronized CCharPointer qrng_get_random_bytes(IsolateThread thread, CCharPointer targetBuffer, int count) {
-        if (count<0)
+        if (count < 0)
             return toCCharPointer("{\"error\":\"Negative count specified\"}");
 
         qrngServer.ensureReplenishing(0);
 
         try {
             byte[] bytes = clientBuffer.consume(count);
-            if (targetBuffer==NULL_BUFFER) {
+            if (targetBuffer == NULL_BUFFER) {
                 // converting bytes to Java stream:
                 var buffer = ByteBuffer.wrap(bytes);
                 var bytesStr = Stream.generate(() -> buffer.get()).
                         limit(buffer.capacity()).
                         map(b -> Byte.toString(b)).
                         collect(Collectors.joining(" "));
-                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. "+
-                        "However, the QRNG service is working. We got "+count+" random bytes: "+bytesStr+".\"");
+                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. " +
+                        "However, the QRNG service is working. We got " + count + " random bytes: " + bytesStr + ".\"");
             }
             for (int i = 0; i < count; ++i) {
                 targetBuffer.write(i, bytes[i]);
@@ -142,9 +142,9 @@ public class QrngClient {
             return NULL_BUFFER; // Java "null" won't work in Native Image!
         } catch (InterruptedException e) {
             if (targetBuffer == NULL_BUFFER) {
-                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. We are here to report an exception: "+e.getMessage()+"\"}");
+                throw new RuntimeException("{\"error\":\"QrngClient is not running within Native Image. We are here to report an exception: " + e.getMessage() + "\"}");
             }
-            return toCCharPointer("{\"error\":\"Waiting for random bytes was interrupted: "+e.getMessage()+"\"}");
+            return toCCharPointer("{\"error\":\"Waiting for random bytes was interrupted: " + e.getMessage() + "\"}");
         }
 
     }
@@ -152,6 +152,7 @@ public class QrngClient {
     /**
      * Technical function to transform Java String to CCharPointer (char*) that can be returned to C.
      * The result must be freed by calling qrng_free_result.
+     *
      * @param string the Java string to transform
      * @return a CCharPointer that will be returned to C as char*
      */

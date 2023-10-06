@@ -1,5 +1,6 @@
 package lv.lumii.qrng;
 
+import lv.lumii.qrng.clienttoken.Token;
 import nl.altindag.ssl.SSLFactory;
 import org.cactoos.Scalar;
 import org.cactoos.scalar.Sticky;
@@ -32,15 +33,15 @@ public class QrngServer {
     ScheduledExecutorService reconnectService;
 
 
-    public QrngServer(QrngProperties qrngProperties1, ClientBuffer clientBuffer) {
-        qrngProperties = qrngProperties1;
+    public QrngServer(QrngProperties qrngProperties, ClientBuffer clientBuffer) {
+        this.qrngProperties = qrngProperties;
         this.clientBuffer = clientBuffer;
         this.wsclient = new Synced<>(new Sticky<>(() -> newConnection() ));
         this.reconnectService = Executors.newSingleThreadScheduledExecutor();
     }
 
     private WebSocketClient newConnection() throws Exception {
-        QrngClientToken token = qrngProperties.clientToken();
+        Token token = qrngProperties.clientToken();
 
         TrustManagerFactory trustMgrFact = TrustManagerFactory.getInstance("SunX509");
         trustMgrFact.init(qrngProperties.trustStore());

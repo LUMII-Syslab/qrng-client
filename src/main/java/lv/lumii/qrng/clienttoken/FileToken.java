@@ -1,4 +1,4 @@
-package lv.lumii.qrng.token;
+package lv.lumii.qrng.clienttoken;
 
 import org.cactoos.scalar.Sticky;
 import org.cactoos.scalar.Unchecked;
@@ -10,7 +10,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
 
-public class FileToken implements QrngClientToken {
+public class FileToken implements Token {
 
     private final char[] password;
     private final String alias;
