@@ -41,6 +41,29 @@ repositories {
     mavenCentral()
 }
 
+/*sourceSets.main.java.srcDirs += [
+    'src/bc-java/core/src/main/java',
+    'src/bc-java/pkix/src/main/java',
+    'src/bc-java/prov/src/main/java',
+    'src/bc-java/tls/src/main/java',
+    'src/bc-java/tls/src/main/jdk1.9',
+    'src/bc-java/util/src/main/java',
+]*/
+sourceSets.main {
+    java {
+        srcDirs 'src/main/java',
+                'src/bc-java/core/src/main/java',
+                'src/bc-java/pkix/src/main/java',
+                'src/bc-java/prov/src/main/java',
+                'src/bc-java/tls/src/main/java',
+                'src/bc-java/tls/src/main/jdk1.9/org/bouncycastle/jsse/provider',
+                // ^^^ important that we do not include module-info.java (otherwise, the whole BC module farm is needed)
+                // ^^^ and org/bouncycastle/tls/crypto/impl/jcajce/** (otherwise, there are duplicate class files)
+                'src/bc-java/util/src/main/java'
+    }
+}
+
+
 compileJava.options.encoding = "UTF-8"
 
 configurations {
