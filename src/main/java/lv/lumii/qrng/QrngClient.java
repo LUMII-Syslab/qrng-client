@@ -58,17 +58,18 @@ public class QrngClient {
 
         HashMap<String, ClientTokenFactory> tokenFactories = new HashMap<>();
 
+        qrngProperties = new QrngProperties(mainDirectory, tokenFactories);
+
         // Trying to collect some additional client token factories...
         try {
             Class<?> c = Class.forName("lv.lumii.smartcard.SmartCardClientTokenFactory");
-            ClientTokenFactory sctFactory = (ClientTokenFactory) c.getConstructor().newInstance();
+            ClientTokenFactory sctFactory = (ClientTokenFactory) c.getConstructor(QrngProperties.class).newInstance(qrngProperties);
             tokenFactories.put("smartcard", sctFactory);
             logger.info("Client token factory 'smartcard' installed.");
         } catch (Exception e) {
             logger.info("Not using 'smartcard' client token factory since it is not installed.");
         }
 
-        qrngProperties = new QrngProperties(mainDirectory, tokenFactories);
 
         if (qrngProperties.pqcKemRequired())
             InjectablePQC.inject(true, (message) -> qrngProperties.clientToken().signed(message));
