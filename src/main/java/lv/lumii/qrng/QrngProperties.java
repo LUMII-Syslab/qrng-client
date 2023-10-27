@@ -139,5 +139,8 @@ public class QrngProperties {
         return trustStore;
     }
 
+    public Properties allProperties() {
+        return this.properties.value();
+    }
 
 }
