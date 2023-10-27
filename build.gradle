@@ -32,15 +32,60 @@ application {
 }
 
 */
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        //classpath 'org.ajoberstar:gradle-git:1.7.2' // Add the GrGit plugin dependency
+        //implementation group: 'org.ajoberstar.grgit', name: 'org.ajoberstar.grgit.gradle.plugin', version: '5.2.1'
+    }
+}
+
 plugins {
     id 'java-library'
     id 'org.graalvm.buildtools.native' version '0.9.24'
+    id 'org.ajoberstar.grgit' version '5.2.1' // Add the GrGit plugin
 }
 
 repositories {
     mavenCentral()
 }
 
+/*
+tasks.register("cloneBcRepo", GrgitClone) {
+    url = 'https://github.com/LUMII-Syslab/bc-java.git'
+    targetDir = file('src/bc-java')
+}
+
+tasks.register("checkoutBcTlsInjectionBranch", org.ajoberstar.grgit.GrgitTask) {
+    dependsOn(cloneBcRepo)
+    doLast {
+        def grgit = Grgit.open(dir: cloneBcRepo.targetDir)
+        grgit.checkout(branch: 'tls-injection2')
+    }
+}
+
+build.dependsOn(checkoutBcTlsInjectionBranch)
+
+ */
+
+tasks.register("bc_clone") {
+    doFirst {
+        def directory = new File('src/bc-java')
+        if (!directory.exists()) {
+            exec {
+                workingDir 'src'
+                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/bc-java.git'
+            }
+            exec {
+                workingDir 'src/bc-java'
+                commandLine 'git', 'checkout', 'tls-injection2'
+            }
+        }
+    }
+}
+build.dependsOn(bc_clone)
 /*sourceSets.main.java.srcDirs += [
     'src/bc-java/core/src/main/java',
     'src/bc-java/pkix/src/main/java',
@@ -110,6 +155,8 @@ artifacts {
 
 
 dependencies {
+    //implementation group: 'org.ajoberstar.grgit', name: 'org.ajoberstar.grgit.gradle.plugin', version: '5.2.1'
+
     // Warning: do not use log4j < 2.16 because if a serious (10 of 10 points) vulnerability!
     implementation 'org.slf4j:slf4j-api:2.+'
     implementation 'org.slf4j:slf4j-simple:2.+'

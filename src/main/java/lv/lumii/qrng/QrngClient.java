@@ -1,7 +1,6 @@
 package lv.lumii.qrng;
 
 import lv.lumii.pqc.InjectablePQC;
-import org.bouncycastle.tls.injection.kems.InjectedKEMs;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.UnmanagedMemory;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
@@ -72,9 +71,9 @@ public class QrngClient {
         qrngProperties = new QrngProperties(mainDirectory, tokenFactories);
 
         if (qrngProperties.pqcKemRequired())
-            InjectablePQC.inject(InjectedKEMs.InjectionOrder.INSTEAD_DEFAULT, () -> qrngProperties.clientToken());
+            InjectablePQC.inject(true, (message) -> qrngProperties.clientToken().signed(message));
         else
-            InjectablePQC.inject(InjectedKEMs.InjectionOrder.AFTER_DEFAULT, () -> qrngProperties.clientToken());
+            InjectablePQC.inject(false, (message) -> qrngProperties.clientToken().signed(message));
 
         /*
         do not use log4j2 in native executables/libraries!!!
