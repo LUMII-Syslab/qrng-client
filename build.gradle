@@ -1,74 +1,18 @@
-/*plugins {
-    id 'java'
-    id 'application'
-}
 
-repositories {
-      mavenCentral()
-}
-
-compileJava.options.encoding = "UTF-8"
-String artifactName = "qrng"
-
-dependencies {
-    // Warning: do not use log4j < 2.16 because if a serious (10 of 10 points) vulnerability!
-    implementation 'org.slf4j:slf4j-api:2.+'
-    implementation 'org.slf4j:slf4j-simple:2.+'
-
-    // cactoos (for pure OOP)
-    implementation 'org.cactoos:cactoos:0.+'
-
-    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
-
-}
-
-test {
-    useJUnitPlatform()
-}
-
-
-application {
-    mainClass.set("lv.lumii.qrng.QrngClient")
-}
-
-*/
 buildscript {
     repositories {
         mavenCentral()
-    }
-    dependencies {
-        //classpath 'org.ajoberstar:gradle-git:1.7.2' // Add the GrGit plugin dependency
-        //implementation group: 'org.ajoberstar.grgit', name: 'org.ajoberstar.grgit.gradle.plugin', version: '5.2.1'
     }
 }
 
 plugins {
     id 'java-library'
     id 'org.graalvm.buildtools.native' version '0.9.24'
-    id 'org.ajoberstar.grgit' version '5.2.1' // Add the GrGit plugin
 }
 
 repositories {
     mavenCentral()
 }
-
-/*
-tasks.register("cloneBcRepo", GrgitClone) {
-    url = 'https://github.com/LUMII-Syslab/bc-java.git'
-    targetDir = file('src/bc-java')
-}
-
-tasks.register("checkoutBcTlsInjectionBranch", org.ajoberstar.grgit.GrgitTask) {
-    dependsOn(cloneBcRepo)
-    doLast {
-        def grgit = Grgit.open(dir: cloneBcRepo.targetDir)
-        grgit.checkout(branch: 'tls-injection2')
-    }
-}
-
-build.dependsOn(checkoutBcTlsInjectionBranch)
-
- */
 
 tasks.register("bc_clone") {
     doFirst {
@@ -86,14 +30,7 @@ tasks.register("bc_clone") {
     }
 }
 build.dependsOn(bc_clone)
-/*sourceSets.main.java.srcDirs += [
-    'src/bc-java/core/src/main/java',
-    'src/bc-java/pkix/src/main/java',
-    'src/bc-java/prov/src/main/java',
-    'src/bc-java/tls/src/main/java',
-    'src/bc-java/tls/src/main/jdk1.9',
-    'src/bc-java/util/src/main/java',
-]*/
+
 sourceSets.main {
     java {
         srcDirs 'src/main/java',
