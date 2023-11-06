@@ -93,8 +93,11 @@ public class InjectableSphincsPlus implements SigAlgAPI {
         byte[] pubEncoding = params.getEncodedPublicKey();
 
         // remove alg params (4 bytes)
-        encoding = Arrays.copyOfRange(encoding, 4, encoding.length);
-        pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length);
+
+        if (encoding.length == sphincsPlusSKLength+4)
+            encoding = Arrays.copyOfRange(encoding, 4, encoding.length); // this step is not needed in recent BC versions
+        if (pubEncoding.length == sphincsPlusPKLength+4)
+            pubEncoding = Arrays.copyOfRange(pubEncoding, 4, pubEncoding.length); // this step is not needed in recent BC versions
 
         AlgorithmIdentifier algorithmIdentifier =
                 new AlgorithmIdentifier(oid);
@@ -162,7 +165,8 @@ public class InjectableSphincsPlus implements SigAlgAPI {
     public byte[] sign(JcaTlsCrypto crypto, byte[] message, byte[] privateKey) throws IOException {
         SPHINCSPlusSigner signer = new SPHINCSPlusSigner();
 
-        privateKey = Arrays.copyOfRange(privateKey, 4, privateKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
+        if (privateKey.length == sphincsPlusSKLength+4)
+            privateKey = Arrays.copyOfRange(privateKey, 4, privateKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
         //int sphincsPlusParams = Pack.bigEndianToInt(privateKey, 0);
 
 
