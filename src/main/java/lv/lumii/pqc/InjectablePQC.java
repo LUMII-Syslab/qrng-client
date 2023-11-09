@@ -33,8 +33,6 @@ public class InjectablePQC {
         // PQC signatures are huge; increasing the max handshake size:
         System.setProperty("jdk.tls.maxHandshakeMessageSize", String.valueOf(32768 * 32));
 
-        System.out.println("   ");
-
         InjectableSphincsPlus mySphincs = new InjectableSphincsPlus();
         InjectableSmartCardRSA myRSA = new InjectableSmartCardRSA(smartCardSignFunction);
 
