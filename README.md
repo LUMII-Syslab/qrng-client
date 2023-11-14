@@ -1,7 +1,5 @@
 # QRNG Native Client
 
-(work in progress, some parts working)
-
 Providing true randomness to Linux and Windows programs via a remote QRNG (quantum random number generator) device.
 
 The communication with the remote QRNG is performed by means of web sockets, where for authentication and key exchange, quantum-resistant algorithms (PQC) are used.
@@ -45,32 +43,21 @@ In other operating systems, install dev tools and `git` using the appropriate pa
 git clone https://github.com/LUMII-Syslab/qrng-client.git
 ```
 
+#### Clone the BouncyCastle library
+
+```bash
+./gradlew bc_clone
+```
+
 ## Building the Native Library in Windows
 
-Launch `cmd` and initialize Visual Studio environment variables (use your version in the path):
+Launch `cmd` and initialize Visual Studio environment variables (use your version in the path). Then invoke `gradlew nativeCompile`.
 
 ```bash
-"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 cd C:\path\to\qrng-client
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 gradlew nativeCompile
 ```
-
-If  you get an error like
-
-```bash
-Fatal error: Unsupported OptionOrigin: C:\Users\SysLab\AppData\Local\Temp\native-image822152195599878649args
-```
-
-then this is a GraalVM bug. Split the path shown in the error message into two parts, and invoke:
-
-```bash
-cd C:\Users\SysLab\AppData\Local\Temp
-native-image @native-image822152195599878649args
-```
-
-In `build.gradle`, comment the line (otherwise you won't be able to run tests due to the bug mentioned above):
-
-    // dependsOn nativeCompile 
 
 ## Building the Native Library in UNIX (Linux/MacOS)
 
@@ -87,7 +74,7 @@ You will need these files:
 - `token.keystore` (your client certificate, signed by the CA that serves the QRNG server)
 - `qrng.properties` (key passwords and other settings)
 
-Obtain these files from the administrator of the remote QRNG service and put them into the same directory, where the native library has been built (i.e., into `build/native/nativeCompile`). 
+Obtain these files for the desired QRNG service (e.g., our https://qrng.lumii.lv/) and put them into the same directory, where the native library has been built (i.e., into `build/native/nativeCompile`). 
 
 Then run (from the project root):
 
@@ -97,11 +84,16 @@ Then run (from the project root):
 
 That will build the `test.exe` program (from `src/test/cpp/test.cpp`) that tries (twice) to get random numbers from the remote QRNG via a quantum-safe link. The first try is expected to return 10 random bytes. The second try is expected to return an error message.
 
-## Work in Progress...
+## Additional features available under different licenses
 
-For Linux, we are going to provide the "qrng" systemd service and the "qrng" Linux kernel module, which creates the /dev/qrandom0 device, which communicates with a remote QRNG web service.
+* [GNU GPLv3] Linux kernel module, which creates the /dev/qrandom0 device, which communicates with a remote QRNG web service. (GNU GPL license)
+  The kernel module can be obtained [here](https://github.com/LUMII-Syslab/qrng-dev-qrandom). 
+  The main contributor is Krišjānis Petručeņa.
 
-On Windows, we are working on qrng.dll, which will provide hooks for Windows API functions CryptGenRandom, BCryptGenRandom, and RtlGenRandom. These functions are used by programs compiled for Windows (e.g., openssl.exe) for obtaining random numbers. We re-implement these functions by returning random numbers obtained from a remote QRNG device.
+* [PROPRIETARY] Windows DLL with the ability to replace Windows API functions CryptGenRandom, BCryptGenRandom, and RtlGenRandom. These functions are used by programs compiled for Windows (e.g., openssl.exe) for obtaining random numbers. We re-implement these functions by returning random numbers obtained from a remote QRNG device. (Proprietary license, can be obtained from the Institute of Mathematics and Computer Science, University of Latvia, syslab_services at lumii.lv)
+
+* [PROPRIETARY] QRNG client authentication via a smartcard. (Proprietary license, can be obtained from the Institute of Mathematics and Computer Science, University of Latvia, syslab_services at lumii.lv)
+  We can also create a smart card with a hidden RSA private key and the corresponding certificate (RSA public key signed with our post-quantum private key). The card then acts as a non-transferable token to access our services.
 
 ## Contributors
 
@@ -109,6 +101,16 @@ On Windows, we are working on qrng.dll, which will provide hooks for Windows API
   
   (Institute of Mathematics and Computer Science, University of Latvia)
 
-## License
+## Licenses
 
-MIT + third-party licenses for third-party code (e.g., Apache 2.0 license for the `nl.altindag.ssl` package, GPLv2 with Classpath exception for GraalVM-related code that will be compiled into the client, etc.)
+The following licenses apply to the qrng-client library:
+
+* The qnrg client base library (the public GitHub repository [GitHub - LUMII-Syslab/qrng-client](https://github.com/LUMII-Syslab/qrng-client)) has been published under the MIT license (see the LICENSE file).
+
+* Third-party code is available under the corresponding third-party licenses (e.g., Apache 2.0 license for the `nl.altindag.ssl` package, GPLv2 with Classpath exception for GraalVM-related code that will be compiled into the client, etc.)
+
+The following additional features are available under the commercial license from the Institute of Mathematics and Computer Science, University of Latvia (syslab_services at lumii.lv):
+
+* Windows DLL with the ability to replace Windows API functions CryptGenRandom, BCryptGenRandom, and RtlGenRandom.
+
+* QRNG client authentication via a smartcard.
