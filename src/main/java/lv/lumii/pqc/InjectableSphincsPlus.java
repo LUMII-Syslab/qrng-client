@@ -177,10 +177,6 @@ public class InjectableSphincsPlus implements SigAlgAPI {
 
     @Override
     public boolean verifySignature(byte[] message, byte[] publicKey, DigitallySigned signature) {
-
-        System.out.println("Sphincs+ pubkey:");
-        System.out.println(InjectablePQC.byteArrayToString(publicKey, " "));
-
         if (publicKey.length == sphincsPlusPKLength+4)
             publicKey = Arrays.copyOfRange(publicKey, 4, publicKey.length); // skip SPHICS+ parameters, 4 bytes big-endian
             //int sphincsPlusParams = Pack.bigEndianToInt(publicKey, 0);
@@ -199,9 +195,7 @@ public class InjectableSphincsPlus implements SigAlgAPI {
     @Override
     public SignatureSpi signatureSpi(Key publicOrPrivateKey) {
         if (name.equals(publicOrPrivateKey.getAlgorithm())) {
-            System.out.println("X509 SPHINCS+ pubkey");
             byte[] b = publicOrPrivateKey.getEncoded();
-            System.out.println(InjectablePQC.byteArrayToString(b, " "));
             byte[] publicKey = Arrays.copyOfRange(b, b.length - 32, b.length);
             SPHINCSPlusPublicKeyParameters params = new SPHINCSPlusPublicKeyParameters(
                     sphincsPlusParameters, publicKey);
