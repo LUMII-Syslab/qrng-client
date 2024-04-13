@@ -49,6 +49,12 @@ git clone https://github.com/LUMII-Syslab/qrng-client.git
 ./gradlew bc_clone
 ```
 
+> If you gen a "fatal: fetch-pack: invalid index-pack output" error, try to execute:
+>
+> ```
+> git config --global http.postBuffer 157286400
+> ./gradlew bc_clone
+
 ## Building the Native Library in Windows
 
 Launch `cmd` and initialize Visual Studio environment variables (use your version in the path). Then invoke `gradlew nativeCompile`.
