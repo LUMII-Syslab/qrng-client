@@ -1,3 +1,4 @@
+import java.nio.file.Files
 
 buildscript {
     repositories {
@@ -21,29 +22,52 @@ repositories {
 tasks.register("prerequisites") {
     doFirst {
         def directory = new File('src/tls-injection-mechanism')
+        def cloned_dir = new File('../tls-injection-mechanism')
+        def cloned_relative_dir = new File('../../tls-injection-mechanism')
         if (!directory.exists()) {
-            exec {
-                workingDir 'src'
-                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-mechanism.git'
+            // cloning...
+            if (!cloned_dir.exists()) {
+                exec {
+                    workingDir '..'
+                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-mechanism.git'
+                }
+                exec {
+                    workingDir cloned_dir
+                    commandLine 'git', 'checkout', 'tls-injection2'
+                }
             }
-            exec {
-                workingDir 'src/tls-injection-mechanism'
-                commandLine 'git', 'checkout', 'tls-injection2'
-            }
+            // symlink...
+            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
         }
+
         directory = new File('src/tls-injection-pqc')
+        cloned_dir = new File('../tls-injection-pqc')
+        cloned_relative_dir = new File('../../tls-injection-pqc')
         if (!directory.exists()) {
-            exec {
-                workingDir 'src'
-                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-pqc.git'
+            // cloning...
+            if (!cloned_dir.exists()) {
+                exec {
+                    workingDir '..'
+                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-pqc.git'
+                }
             }
+            // symlink...
+            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
         }
+
         directory = new File('src/tls-injection-smartcard')
+        cloned_dir = new File('../tls-injection-smartcard')
+        cloned_relative_dir = new File('../../tls-injection-smartcard')
         if (!directory.exists()) {
-            exec {
-                workingDir 'src'
-                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-smartcard.git'
+            // cloning...
+            if (!cloned_dir.exists()) {
+                exec {
+                    workingDir '..'
+                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-smartcard.git'
+                }
             }
+            // symlink...
+            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
         }
 
     }
