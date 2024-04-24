@@ -1,6 +1,5 @@
 package lv.lumii.qrng;
 
-import lv.lumii.pqc.InjectablePQC;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.UnmanagedMemory;
 import org.graalvm.nativeimage.c.function.CEntryPoint;

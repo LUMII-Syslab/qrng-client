@@ -1,21 +1,20 @@
-package lv.lumii.pqc;
+package lv.lumii.qrng;
 
+import lv.lumii.pqc.InjectableFrodoKEM;
+import lv.lumii.smartcard.InjectableSmartCardRSA;
+import lv.lumii.pqc.InjectableSphincsPlus;
+import lv.lumii.smartcard.SmartCardSignFunction;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
-import org.bouncycastle.crypto.SecretWithEncapsulation;
-import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.bouncycastle.pqc.crypto.frodo.*;
 import org.bouncycastle.pqc.crypto.sphincsplus.*;
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.tls.injection.InjectableAlgorithms;
 import org.bouncycastle.tls.injection.InjectableKEMs;
 import org.bouncycastle.tls.injection.InjectionPoint;
-import org.bouncycastle.tls.injection.kems.KEM;
 import org.openquantumsafe.KeyEncapsulation;
 import org.openquantumsafe.Pair;
 
 import java.security.SecureRandom;
-import java.security.Security;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * The class for injecting PQC algorithms used for our experiments (~post-quantum agility)
@@ -37,23 +36,19 @@ public class InjectablePQC {
         InjectableSmartCardRSA myRSA = new InjectableSmartCardRSA(smartCardSignFunction);
 
         InjectableAlgorithms algs = new InjectableAlgorithms()
-                .withSigAlg(mySphincs.name(), mySphincs.oid(), mySphincs.codePoint(), mySphincs)
-                .withSigAlg("SHA256WITHRSA", myRSA.oid(), myRSA.codePoint(), myRSA)
-                .withSigAlg("RSA", myRSA.oid(), myRSA.codePoint(), myRSA) // RSA must be _after_ SHA256WITHRSA, since they share the same code point
+                .withSigAlg(mySphincs.name(), mySphincs.aliases(), mySphincs.oid(), mySphincs.codePoint(), mySphincs)
+                .withSigAlg("SHA256WITHRSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
+                .withSigAlg("RSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
+                //.withSigAlg("SHA256WITHRSA", myRSA.oid(), myRSA.codePoint(), myRSA)
+                //.withSigAlg("RSA", myRSA.oid(), myRSA.codePoint(), myRSA)
+                // RSA must be _after_ SHA256WITHRSA, since they share the same code point, and BC TLS uses "RSA" as a name for finding client RSA certs (however, SHA256WITHRSA is also needed for checking client cert signatures)
                 .withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
                         InjectableFrodoKEM::new, InjectableKEMs.Ordering.BEFORE);
         if (insteadDefaultKems)
             algs = algs.withoutDefaultKEMs();
 
 
-        InjectionPoint._new().push(algs);
-
-
-        BouncyCastleJsseProvider jsseProvider = new BouncyCastleJsseProvider();
-        Security.insertProviderAt(jsseProvider, 1);
-
-        BouncyCastlePQCProvider bcProvider = new BouncyCastlePQCProvider(); // BCPQC
-        Security.insertProviderAt(bcProvider, 1);
+        InjectionPoint.theInstance().push(algs);
     }
 
 
@@ -153,7 +148,7 @@ public class InjectablePQC {
         System.out.println("OQS SK " + byteArrayToString(sk));
 
 
-        final SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.sha2_128f_simple;
+        final SPHINCSPlusParameters sphincsPlusParameters = SPHINCSPlusParameters.sha2_128f;//.sha2_128f_simple;
 
         SPHINCSPlusKeyPairGenerator generator = new SPHINCSPlusKeyPairGenerator();
         SPHINCSPlusKeyGenerationParameters params = new SPHINCSPlusKeyGenerationParameters(new SecureRandom(), sphincsPlusParameters);

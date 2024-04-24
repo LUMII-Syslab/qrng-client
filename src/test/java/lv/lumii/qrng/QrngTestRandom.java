@@ -15,7 +15,7 @@ public class QrngTestRandom {
             CCharPointer res = QrngClient.qrng_get_random_bytes(null, QrngClient.NULL_BUFFER, 10);
         }
         catch (Exception e) {
-            System.err.println("Some exception occurred.");
+            System.err.println("Some exception occurred.12345");
             e.printStackTrace();
         }
 

@@ -1,110 +1,69 @@
-/*plugins {
-    id 'java'
-    id 'application'
-}
 
-repositories {
-      mavenCentral()
-}
-
-compileJava.options.encoding = "UTF-8"
-String artifactName = "qrng"
-
-dependencies {
-    // Warning: do not use log4j < 2.16 because if a serious (10 of 10 points) vulnerability!
-    implementation 'org.slf4j:slf4j-api:2.+'
-    implementation 'org.slf4j:slf4j-simple:2.+'
-
-    // cactoos (for pure OOP)
-    implementation 'org.cactoos:cactoos:0.+'
-
-    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
-
-}
-
-test {
-    useJUnitPlatform()
-}
-
-
-application {
-    mainClass.set("lv.lumii.qrng.QrngClient")
-}
-
-*/
 buildscript {
     repositories {
         mavenCentral()
     }
     dependencies {
-        //classpath 'org.ajoberstar:gradle-git:1.7.2' // Add the GrGit plugin dependency
-        //implementation group: 'org.ajoberstar.grgit', name: 'org.ajoberstar.grgit.gradle.plugin', version: '5.2.1'
     }
 }
 
 plugins {
     id 'java-library'
     id 'org.graalvm.buildtools.native' version '0.9.24'
-    id 'org.ajoberstar.grgit' version '5.2.1' // Add the GrGit plugin
+//    id 'org.ajoberstar.grgit' version '5.2.1' // Add the GrGit plugin
 }
 
 repositories {
     mavenCentral()
 }
 
-/*
-tasks.register("cloneBcRepo", GrgitClone) {
-    url = 'https://github.com/LUMII-Syslab/bc-java.git'
-    targetDir = file('src/bc-java')
-}
 
-tasks.register("checkoutBcTlsInjectionBranch", org.ajoberstar.grgit.GrgitTask) {
-    dependsOn(cloneBcRepo)
-    doLast {
-        def grgit = Grgit.open(dir: cloneBcRepo.targetDir)
-        grgit.checkout(branch: 'tls-injection2')
-    }
-}
-
-build.dependsOn(checkoutBcTlsInjectionBranch)
-
- */
-
-tasks.register("bc_clone") {
+tasks.register("prerequisites") {
     doFirst {
-        def directory = new File('src/bc-java')
+        def directory = new File('src/tls-injection-mechanism')
         if (!directory.exists()) {
             exec {
                 workingDir 'src'
-                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/bc-java.git'
+                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-mechanism.git'
             }
             exec {
-                workingDir 'src/bc-java'
+                workingDir 'src/tls-injection-mechanism'
                 commandLine 'git', 'checkout', 'tls-injection2'
             }
         }
+        directory = new File('src/tls-injection-pqc')
+        if (!directory.exists()) {
+            exec {
+                workingDir 'src'
+                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-pqc.git'
+            }
+        }
+        directory = new File('src/tls-injection-smartcard')
+        if (!directory.exists()) {
+            exec {
+                workingDir 'src'
+                commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-smartcard.git'
+            }
+        }
+
     }
 }
-build.dependsOn(bc_clone)
-/*sourceSets.main.java.srcDirs += [
-    'src/bc-java/core/src/main/java',
-    'src/bc-java/pkix/src/main/java',
-    'src/bc-java/prov/src/main/java',
-    'src/bc-java/tls/src/main/java',
-    'src/bc-java/tls/src/main/jdk1.9',
-    'src/bc-java/util/src/main/java',
-]*/
+build.dependsOn(prerequisites)
+
 sourceSets.main {
     java {
         srcDirs 'src/main/java',
-                'src/bc-java/core/src/main/java',
-                'src/bc-java/pkix/src/main/java',
-                'src/bc-java/prov/src/main/java',
-                'src/bc-java/tls/src/main/java',
-                'src/bc-java/tls/src/main/jdk1.9/org/bouncycastle/jsse/provider',
+                'src/tls-injection-mechanism/core/src/main/java',
+                'src/tls-injection-mechanism/pkix/src/main/java',
+                'src/tls-injection-mechanism/prov/src/main/java',
+                'src/tls-injection-mechanism/tls/src/main/java',
+                'src/tls-injection-mechanism/tls/src/main/jdk1.9/org/bouncycastle/jsse/provider',
                 // ^^^ important that we do not include module-info.java (otherwise, the whole BC module farm is needed)
                 // ^^^ and org/bouncycastle/tls/crypto/impl/jcajce/** (otherwise, there are duplicate class files)
-                'src/bc-java/util/src/main/java'
+                'src/tls-injection-mechanism/util/src/main/java',
+
+                'src/tls-injection-pqc/src/main/java',
+                'src/tls-injection-smartcard/src/main/java'
     }
 }
 
