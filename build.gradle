@@ -11,8 +11,10 @@ buildscript {
 plugins {
     id 'java-library'
     id 'org.graalvm.buildtools.native' version '0.9.24'
+    id "de.undercouch.download" version "5.6.0"
 //    id 'org.ajoberstar.grgit' version '5.2.1' // Add the GrGit plugin
 }
+
 
 repositories {
     mavenCentral()
@@ -54,6 +56,20 @@ tasks.register("prerequisites") {
             // symlink...
             Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
         }
+
+        download.run {
+            src ([
+                    "https://qkd.lumii.lv/liboqs-binaries/Linux-x86_64/liboqs.so",
+                    "https://qkd.lumii.lv/liboqs-binaries/Linux-x86_64/liboqs-jni.so"
+            ])
+            dest "lib"
+            overwrite true
+        }
+        exec {
+            workingDir 'lib'
+            commandLine '/usr/bin/bash', '-c', 'chmod +x *.so'
+        }
+
 
         directory = new File('src/tls-injection-smartcard')
         cloned_dir = new File('../tls-injection-smartcard')

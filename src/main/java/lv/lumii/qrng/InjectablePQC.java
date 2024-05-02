@@ -3,6 +3,7 @@ package lv.lumii.qrng;
 import lv.lumii.pqc.InjectableFrodoKEM;
 import lv.lumii.smartcard.InjectableSmartCardRSA;
 import lv.lumii.pqc.InjectableSphincsPlus;
+import lv.lumii.pqc.InjectableLiboqsKEM;
 import lv.lumii.smartcard.SmartCardSignFunction;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.pqc.crypto.sphincsplus.*;
@@ -42,8 +43,12 @@ public class InjectablePQC {
                 //.withSigAlg("SHA256WITHRSA", myRSA.oid(), myRSA.codePoint(), myRSA)
                 //.withSigAlg("RSA", myRSA.oid(), myRSA.codePoint(), myRSA)
                 // RSA must be _after_ SHA256WITHRSA, since they share the same code point, and BC TLS uses "RSA" as a name for finding client RSA certs (however, SHA256WITHRSA is also needed for checking client cert signatures)
+
+                //.withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
+                 //       InjectableFrodoKEM::new, InjectableKEMs.Ordering.BEFORE)
+
                 .withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
-                        InjectableFrodoKEM::new, InjectableKEMs.Ordering.BEFORE);
+                    ()->new InjectableLiboqsKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT), InjectableKEMs.Ordering.BEFORE);
         if (insteadDefaultKems)
             algs = algs.withoutDefaultKEMs();
 

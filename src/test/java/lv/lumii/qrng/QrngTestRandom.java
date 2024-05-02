@@ -1,10 +1,15 @@
 package lv.lumii.qrng;
 
 import org.graalvm.nativeimage.c.type.CCharPointer;
+import org.openquantumsafe.Common;
+
+import java.io.File;
 
 public class QrngTestRandom {
 
     public static void main(String[] args) throws Exception {
+
+        Common.loadNativeLibrary();
 
         try {
             QrngClient.qrng_connect(null);
