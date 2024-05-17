@@ -1,20 +1,25 @@
 package lv.lumii.qrng;
 
 import lv.lumii.pqc.InjectableFrodoKEM;
+import lv.lumii.pqc.InjectableLiboqsSigAlg;
 import lv.lumii.smartcard.InjectableSmartCardRSA;
 import lv.lumii.pqc.InjectableSphincsPlus;
 import lv.lumii.pqc.InjectableLiboqsKEM;
 import lv.lumii.smartcard.SmartCardSignFunction;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.pqc.crypto.sphincsplus.*;
 import org.bouncycastle.tls.injection.InjectableAlgorithms;
 import org.bouncycastle.tls.injection.InjectableKEMs;
 import org.bouncycastle.tls.injection.InjectionPoint;
+import org.openquantumsafe.KEMs;
 import org.openquantumsafe.KeyEncapsulation;
 import org.openquantumsafe.Pair;
+import org.openquantumsafe.Sigs;
 
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -36,8 +41,37 @@ public class InjectablePQC {
         InjectableSphincsPlus mySphincs = new InjectableSphincsPlus();
         InjectableSmartCardRSA myRSA = new InjectableSmartCardRSA(smartCardSignFunction);
 
+        String oqsName = "SPHINCS+-SHA2-128f-simple";
+        List<String> oqsAliases = Arrays.asList(new String[] {"SPHINCS+-SHA2-128F", "SPHINCS+", "SPHINCSPLUS"});
+        InjectableLiboqsSigAlg oqsSphincs = new InjectableLiboqsSigAlg(oqsName, oqsAliases, mySphincs.oid(), mySphincs.codePoint());
+
+        for (String s : KEMs.get_enabled_KEMs()) {
+            System.out.println("ENABLED KEM "+s);
+        }
+
+        for (String s : KEMs.get_supported_KEMs()) {
+            System.out.println("SUPPORTED KEM "+s);
+        }
+
+        for (String s : Sigs.get_enabled_sigs()) {
+            System.out.println("ENABLED SIG "+s);
+        }
+
+        for (String s : Sigs.get_supported_sigs()) {
+            System.out.println("SUPPORTED SIG "+s);
+        }
+        String oqsDilithiumName = "Dilithium2";
+        int oqsDilithiumCodePoint = 0xfea0;
+        ASN1ObjectIdentifier oqsDilithiumOid = new ASN1ObjectIdentifier("1.3.6.1.4.1.2.267.7.4").branch("4");
+        Collection<String> oqsDilithiumAliases = Arrays.asList(new String[]{});
+        InjectableLiboqsSigAlg oqsDilithium2 = new InjectableLiboqsSigAlg(oqsDilithiumName, oqsDilithiumAliases, oqsDilithiumOid, oqsDilithiumCodePoint);
+
         InjectableAlgorithms algs = new InjectableAlgorithms()
+                //.withSigAlg(oqsSphincs.name(), oqsAliases, oqsSphincs.oid(), oqsSphincs.codePoint(), oqsSphincs)
+                .withSigAlg(oqsDilithiumName, oqsDilithiumAliases, oqsDilithiumOid, oqsDilithiumCodePoint, oqsDilithium2)
+
                 .withSigAlg(mySphincs.name(), mySphincs.aliases(), mySphincs.oid(), mySphincs.codePoint(), mySphincs)
+
                 .withSigAlg("SHA256WITHRSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
                 .withSigAlg("RSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
                 //.withSigAlg("SHA256WITHRSA", myRSA.oid(), myRSA.codePoint(), myRSA)
@@ -49,6 +83,8 @@ public class InjectablePQC {
 
                 .withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
                     ()->new InjectableLiboqsKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT), InjectableKEMs.Ordering.BEFORE);
+
+        // TODO: ML-KEM-512, 0x0247
         if (insteadDefaultKems)
             algs = algs.withoutDefaultKEMs();
 
